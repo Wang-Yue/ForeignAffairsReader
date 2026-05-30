@@ -90,7 +90,7 @@ class AppModel: ObservableObject {
         ("it", "Italian")
     ]
     
-    func breakPaywall() {
+    func extractReaderArticle() {
         guard let url = URL(string: urlString) else {
             self.extractionError = "Invalid URL string"
             return

@@ -167,7 +167,7 @@ struct ContentView: View {
                             VStack(spacing: 15) {
                                 ProgressView()
                                     .controlSize(.large)
-                                Text(model.selectedLanguage != "en" ? "Translating Natively..." : "Unlocking Premium Article...")
+                                Text(model.selectedLanguage != "en" ? "Translating Natively..." : "Preparing Reader Mode...")
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundColor(.secondary)
                             }
@@ -200,8 +200,8 @@ struct ContentView: View {
                 // Reset translation state back to English whenever entering Reader Mode
                 model.selectedLanguage = "en"
                 
-                // Always break the paywall and extract the fresh text of the current browser URL
-                model.breakPaywall()
+                // Extract the article content and format reader mode
+                model.extractReaderArticle()
             }
         }
         .translationTask(model.translationConfig) { session in

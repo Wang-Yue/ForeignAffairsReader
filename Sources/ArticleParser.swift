@@ -88,9 +88,9 @@ class ArticleParser: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
                 });
             }
             
-            var paywallContent = document.querySelector('.paywall-content') || document.querySelector('.article-dropcap--inner');
-            if (paywallContent) {
-                parseNodeList(paywallContent);
+            var contentContainer = document.querySelector('.paywall-content') || document.querySelector('.article-dropcap--inner');
+            if (contentContainer) {
+                parseNodeList(contentContainer);
             } else {
                 var bodyContentEl = document.querySelector('.article__body-content') || document.querySelector('.rich-text__inner');
                 if (bodyContentEl) {

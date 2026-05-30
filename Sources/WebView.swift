@@ -111,8 +111,8 @@ struct WebView: NSViewRepresentable {
                 }
             }
             
-            // Run a script in-place to bypass paywall CSS blockages automatically
-            runInPlaceBypass(on: webView)
+            // Run a script in-place to optimize layout styling and scrolling
+            optimizeInPlaceLayout(on: webView)
         }
         
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -121,11 +121,11 @@ struct WebView: NSViewRepresentable {
             }
         }
         
-        // Unblocks scrolling and styling in-place on the live site
-        private func runInPlaceBypass(on webView: WKWebView) {
+        // Optimizes reading view scrolling and styling in-place on the live site
+        private func optimizeInPlaceLayout(on webView: WKWebView) {
             let inPlaceJS = """
             (function() {
-                // Remove paywall overlays and blockers
+                // Remove layout overlay elements and promotional banners
                 var selectorsToHide = [
                     '.paywall',
                     '.paywall-free-article',
@@ -142,12 +142,12 @@ struct WebView: NSViewRepresentable {
                 });
                 
                 // Unhide content body if container is height-limited or overflow blocked
-                var paywallContent = document.querySelector('.paywall-content');
-                if (paywallContent) {
-                    paywallContent.style.maxHeight = 'none';
-                    paywallContent.style.height = 'auto';
-                    paywallContent.style.overflow = 'visible';
-                    paywallContent.style.opacity = '1';
+                var contentContainer = document.querySelector('.paywall-content');
+                if (contentContainer) {
+                    contentContainer.style.maxHeight = 'none';
+                    contentContainer.style.height = 'auto';
+                    contentContainer.style.overflow = 'visible';
+                    contentContainer.style.opacity = '1';
                 }
                 
                 // Enable scrollability
@@ -202,9 +202,9 @@ struct WebView: NSViewRepresentable {
                     });
                 }
                 
-                var paywallContent = document.querySelector('.paywall-content') || document.querySelector('.article-dropcap--inner');
-                if (paywallContent) {
-                    parseNodeList(paywallContent);
+                var contentContainer = document.querySelector('.paywall-content') || document.querySelector('.article-dropcap--inner');
+                if (contentContainer) {
+                    parseNodeList(contentContainer);
                 } else {
                     var bodyContentEl = document.querySelector('.article__body-content') || document.querySelector('.rich-text__inner');
                     if (bodyContentEl) {
