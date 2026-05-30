@@ -226,115 +226,80 @@ struct ContentView: View {
             }
             .navigationSplitViewColumnWidth(min: 320, ideal: 340, max: 400)
         } detail: {
-            // Right Side: Premium Reader Panel
-            VStack(spacing: 0) {
-                // Top Reader Settings Bar
-                HStack(spacing: 15) {
-                    if let activeTitle = model.translatedArticle?.title ?? model.article?.title {
-                        Text(activeTitle)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.primary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    } else {
-                        Text("Reading Room")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+            // Right Side: Reader View
+            ZStack {
+                ReaderView(model: model)
+                
+                if model.isLoading {
+                    VStack(spacing: 15) {
+                        ProgressView()
+                            .controlSize(.large)
+                        Text(model.selectedLanguage != "en" ? "Translating Natively..." : "Preparing Reader Mode...")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
                     }
-                    
-                    Spacer()
-                    
+                    .padding(30)
+                    .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow))
+                    .cornerRadius(16)
+                    .shadow(radius: 15)
+                }
+                
+                if let err = model.extractionError {
+                    VStack {
+                        Text(err)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                            .padding()
+                            .background(Color.black.opacity(0.8))
+                            .cornerRadius(8)
+                    }
+                }
+            }
+            .frame(minWidth: 500, idealWidth: 600, maxWidth: .infinity)
+            .navigationTitle(model.translatedArticle?.title ?? model.article?.title ?? "Reading Room")
+            .toolbar {
+                ToolbarItemGroup(placement: .primaryAction) {
                     // Theme Segment Picker
-                    Picker("", selection: $model.readerTheme) {
+                    Picker("Theme", selection: $model.readerTheme) {
                         ForEach(ReaderTheme.allCases) { theme in
                             Text(theme.rawValue).tag(theme)
                         }
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 150)
+                    .help("Reader Theme")
                     
                     // Font sizing triggers
-                    HStack(spacing: 4) {
+                    HStack(spacing: 2) {
                         Button(action: {
                             if model.fontSizeMultiplier > 0.6 {
                                 model.fontSizeMultiplier -= 0.1
                             }
                         }) {
-                            Text("A-")
-                                .font(.system(size: 10, weight: .bold))
+                            Label("Decrease Font Size", systemImage: "textformat.size.smaller")
                         }
-                        .buttonStyle(.plain)
-                        .frame(width: 24, height: 20)
-                        .background(Color.secondary.opacity(0.15))
-                        .cornerRadius(4)
+                        .help("Decrease Font Size")
                         
                         Button(action: {
                             if model.fontSizeMultiplier < 2.0 {
                                 model.fontSizeMultiplier += 0.1
                             }
                         }) {
-                            Text("A+")
-                                .font(.system(size: 10, weight: .bold))
+                            Label("Increase Font Size", systemImage: "textformat.size.larger")
                         }
-                        .buttonStyle(.plain)
-                        .frame(width: 24, height: 20)
-                        .background(Color.secondary.opacity(0.15))
-                        .cornerRadius(4)
+                        .help("Increase Font Size")
                     }
                     
                     // Native Translation Dropdown Selection
-                    HStack(spacing: 4) {
-                        Image(systemName: "translate")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                        
-                        Picker("", selection: $model.selectedLanguage) {
-                            ForEach(model.languages, id: \.code) { lang in
-                                Text(lang.name).tag(lang.code)
-                            }
-                        }
-                        .frame(width: 140)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                
-                Divider()
-                
-                // Reader Pane Web Layout & Loader Hud overlays
-                ZStack {
-                    ReaderView(model: model)
-                    
-                    if model.isLoading {
-                        VStack(spacing: 15) {
-                            ProgressView()
-                                .controlSize(.large)
-                            Text(model.selectedLanguage != "en" ? "Translating Natively..." : "Preparing Reader Mode...")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(30)
-                        .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow))
-                        .cornerRadius(16)
-                        .shadow(radius: 15)
-                    }
-                    
-                    if let err = model.extractionError {
-                        VStack {
-                            Text(err)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.white)
-                                .multilineTextAlignment(.center)
-                                .padding()
-                                .background(Color.black.opacity(0.8))
-                                .cornerRadius(8)
+                    Picker(selection: $model.selectedLanguage, label: Label("Translate", systemImage: "translate")) {
+                        ForEach(model.languages, id: \.code) { lang in
+                            Text(lang.name).tag(lang.code)
                         }
                     }
+                    .pickerStyle(.menu)
+                    .help("Translate Article")
                 }
             }
-            .frame(minWidth: 500, idealWidth: 600, maxWidth: .infinity)
         }
         .translationTask(model.translationConfig) { session in
             guard let article = model.article else { return }
