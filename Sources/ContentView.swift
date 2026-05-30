@@ -77,9 +77,10 @@ struct ArticleCardView: View {
 struct ContentView: View {
     @State private var model = AppModel()
     @State private var searchInput: String = ""
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             // Left Side: Sidebar
             VStack(spacing: 0) {
                 // Premium Sidebar Header (Title & Subtitle)
@@ -238,6 +239,129 @@ struct ContentView: View {
                         }
                     }
                 }
+                
+                // Bottom Control Bar
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(model.readerTheme.borderColor)
+                        .frame(height: 1)
+                    
+                    HStack(spacing: 12) {
+                        // Translation Selector Menu
+                        Menu {
+                            ForEach(model.languages, id: \.code) { lang in
+                                Button(action: {
+                                    model.selectedLanguage = lang.code
+                                }) {
+                                    HStack {
+                                        Text(lang.name)
+                                        if model.selectedLanguage == lang.code {
+                                            Spacer()
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "translate")
+                                    .font(.system(size: 11, weight: .medium))
+                                
+                                Text(model.languages.first(where: { $0.code == model.selectedLanguage })?.name.components(separatedBy: " (").first ?? "Translate")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .lineLimit(1)
+                                
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 8))
+                            }
+                            .foregroundColor(model.readerTheme.primaryTextColor)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 6)
+                            .background(model.readerTheme.controlBackgroundColor)
+                            .cornerRadius(6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(model.readerTheme.borderColor, lineWidth: 1)
+                            )
+                        }
+                        .menuStyle(.button)
+                        .buttonStyle(.plain)
+                        
+                        Spacer()
+                        
+                        // Theme Selector Circles
+                        HStack(spacing: 8) {
+                            ForEach(ReaderTheme.allCases) { theme in
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        model.readerTheme = theme
+                                    }
+                                }) {
+                                    Circle()
+                                        .fill(theme.backgroundColor)
+                                        .frame(width: 20, height: 20)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(model.readerTheme == theme ? model.readerTheme.accentColor : model.readerTheme.borderColor, lineWidth: model.readerTheme == theme ? 2 : 1)
+                                        )
+                                        .shadow(color: Color.black.opacity(model.readerTheme == theme ? 0.15 : 0.05), radius: 1, x: 0, y: 1)
+                                }
+                                .buttonStyle(.plain)
+                                .help("\(theme.rawValue) Theme")
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        // Font Resizing Buttons
+                        HStack(spacing: 4) {
+                            Button(action: {
+                                if model.fontSizeMultiplier > 0.6 {
+                                    withAnimation(.spring(response: 0.2)) {
+                                        model.fontSizeMultiplier -= 0.1
+                                    }
+                                }
+                            }) {
+                                Image(systemName: "textformat.size.smaller")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(model.readerTheme.primaryTextColor)
+                                    .frame(width: 26, height: 26)
+                                    .background(model.readerTheme.controlBackgroundColor)
+                                    .cornerRadius(6)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(model.readerTheme.borderColor, lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .help("Decrease Font Size")
+                            
+                            Button(action: {
+                                if model.fontSizeMultiplier < 2.0 {
+                                    withAnimation(.spring(response: 0.2)) {
+                                        model.fontSizeMultiplier += 0.1
+                                    }
+                                }
+                            }) {
+                                Image(systemName: "textformat.size.larger")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(model.readerTheme.primaryTextColor)
+                                    .frame(width: 26, height: 26)
+                                    .background(model.readerTheme.controlBackgroundColor)
+                                    .cornerRadius(6)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(model.readerTheme.borderColor, lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .help("Increase Font Size")
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(model.readerTheme.sidebarBackgroundColor)
+                }
             }
             .background(model.readerTheme.sidebarBackgroundColor)
             .navigationSplitViewColumnWidth(min: 320, ideal: 340, max: 400)
@@ -279,52 +403,41 @@ struct ContentView: View {
                             )
                     }
                 }
+                
+                if columnVisibility == .detailOnly {
+                    VStack {
+                        HStack {
+                            Button(action: {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    columnVisibility = .all
+                                }
+                            }) {
+                                Image(systemName: "sidebar.left")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(model.readerTheme.primaryTextColor)
+                                    .frame(width: 32, height: 32)
+                                    .background(model.readerTheme.controlBackgroundColor)
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(model.readerTheme.borderColor, lineWidth: 1)
+                                    )
+                                    .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.leading, 20)
+                            .padding(.top, 20)
+                            
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                }
             }
             .background(model.readerTheme.backgroundColor)
             .frame(minWidth: 500, idealWidth: 600, maxWidth: .infinity)
-            .navigationTitle(model.translatedArticle?.title ?? model.article?.title ?? "Reading Room")
-            .toolbar {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    // Theme Segment Picker
-                    Picker("Theme", selection: $model.readerTheme) {
-                        ForEach(ReaderTheme.allCases) { theme in
-                            Text(theme.rawValue).tag(theme)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .help("Reader Theme")
-                    
-                    // Font sizing triggers
-                    HStack(spacing: 2) {
-                        Button(action: {
-                            if model.fontSizeMultiplier > 0.6 {
-                                model.fontSizeMultiplier -= 0.1
-                            }
-                        }) {
-                            Label("Decrease Font Size", systemImage: "textformat.size.smaller")
-                        }
-                        .help("Decrease Font Size")
-                        
-                        Button(action: {
-                            if model.fontSizeMultiplier < 2.0 {
-                                model.fontSizeMultiplier += 0.1
-                            }
-                        }) {
-                            Label("Increase Font Size", systemImage: "textformat.size.larger")
-                        }
-                        .help("Increase Font Size")
-                    }
-                    
-                    // Native Translation Dropdown Selection
-                    Picker(selection: $model.selectedLanguage, label: Label("Translate", systemImage: "translate")) {
-                        ForEach(model.languages, id: \.code) { lang in
-                            Text(lang.name).tag(lang.code)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .help("Translate Article")
-                }
-            }
+            .navigationTitle("")
+            .toolbar(.hidden)
         }
         .translationTask(model.translationConfig) { session in
             guard let article = model.article else { return }
@@ -379,6 +492,13 @@ struct ContentView: View {
         }
         .id(model.article?.title ?? "empty")
         .frame(minWidth: 850, minHeight: 600)
+        .background(
+            Button("") {
+                toggleSidebar()
+            }
+            .keyboardShortcut("s", modifiers: [.command, .option])
+            .opacity(0)
+        )
         .onAppear {
             updateWindowAppearance(for: model.readerTheme)
         }
@@ -391,26 +511,6 @@ struct ContentView: View {
         .onChange(of: model.translatedArticle?.title) {
             updateWindowAppearance(for: model.readerTheme)
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { notification in
-            if let window = notification.object as? NSWindow {
-                updateWindowAppearance(for: model.readerTheme, window: window)
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { notification in
-            if let window = notification.object as? NSWindow {
-                updateWindowAppearance(for: model.readerTheme, window: window)
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willExitFullScreenNotification)) { notification in
-            if let window = notification.object as? NSWindow {
-                updateWindowAppearance(for: model.readerTheme, window: window)
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { notification in
-            if let window = notification.object as? NSWindow {
-                updateWindowAppearance(for: model.readerTheme, window: window)
-            }
-        }
     }
     
     private func updateWindowAppearance(for theme: ReaderTheme, window: NSWindow? = nil) {
@@ -418,7 +518,7 @@ struct ContentView: View {
             guard let window = window ?? NSApp.mainWindow ?? NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isKeyWindow }) ?? NSApp.windows.first else { return }
             
             window.titlebarAppearsTransparent = true
-            window.titleVisibility = .visible
+            window.titleVisibility = .hidden
             
             switch theme {
             case .dark:
@@ -430,6 +530,16 @@ struct ContentView: View {
             case .sepia:
                 window.appearance = NSAppearance(named: .aqua)
                 window.backgroundColor = NSColor(red: 0.99, green: 0.98, blue: 0.97, alpha: 1.0)
+            }
+        }
+    }
+    
+    private func toggleSidebar() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            if columnVisibility == .detailOnly {
+                columnVisibility = .all
+            } else {
+                columnVisibility = .detailOnly
             }
         }
     }

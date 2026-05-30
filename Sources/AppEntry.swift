@@ -16,7 +16,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.center()
         window.title = "Foreign Affairs Reader"
         window.titlebarAppearsTransparent = true
-        window.titleVisibility = .visible
+        window.titleVisibility = .hidden
         
         // Set window content view hosting the SwiftUI ContentView
         let contentView = ContentView()
@@ -98,6 +98,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         fullScreenItem.keyEquivalentModifierMask = [.control, .command]
         viewMenu.addItem(fullScreenItem)
+        
+        // Standard toggle sidebar item
+        let toggleSidebarItem = NSMenuItem(
+            title: "Toggle Sidebar",
+            action: #selector(NSSplitViewController.toggleSidebar(_:)),
+            keyEquivalent: "s"
+        )
+        toggleSidebarItem.keyEquivalentModifierMask = [.command, .option]
+        viewMenu.addItem(toggleSidebarItem)
         
         NSApp.mainMenu = mainMenu
     }
