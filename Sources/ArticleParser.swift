@@ -56,12 +56,28 @@ class ArticleParser: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
             var issue = document.querySelector('.topper__issue')?.innerText || '';
             
             // Extract Cover Image
-            var imgEl = document.querySelector('.topper__image');
+            var imgEl = document.querySelector('.topper__image') || document.querySelector('.article__header-image img');
             var imgSrc = '';
             if (imgEl) {
                 if (imgEl.srcset) {
-                    imgSrc = imgEl.srcset.split(',')[0].trim().split(' ')[0];
-                } else {
+                    var candidates = imgEl.srcset.split(',').map(function(s) {
+                        var parts = s.trim().split(/\\s+/);
+                        var url = parts[0];
+                        var descriptor = parts[1] || '';
+                        var width = 0;
+                        if (descriptor.endsWith('w')) {
+                            width = parseInt(descriptor.slice(0, -1), 10) || 0;
+                        } else if (descriptor.endsWith('x')) {
+                            width = parseFloat(descriptor.slice(0, -1)) * 1000 || 0;
+                        }
+                        return { url: url, width: width };
+                    });
+                    if (candidates.length > 0) {
+                        candidates.sort(function(a, b) { return b.width - a.width; });
+                        imgSrc = candidates[0].url;
+                    }
+                }
+                if (!imgSrc) {
                     imgSrc = imgEl.src || '';
                 }
             }
