@@ -148,7 +148,8 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler
                     'regions', 'search', 'most-read', 'myaccount', 'about-foreign-affairs', 'submissions', 
                     'permissions', 'feedback', 'accessibility-statement', 'sites', 'themes', 'user', 'rss.xml', 
                     'graduateschoolforum', 'subscription', 'terms-use', 'privacy-policy', 'manage-preferences', 
-                    'events', 'mediakit', 'staff', 'frequently-asked-questions', 'books-and-reviews', 'magazine'
+                    'events', 'mediakit', 'staff', 'frequently-asked-questions', 'books-and-reviews', 'magazine',
+                    'browse'
                 ]);
 
                 var anchors = document.querySelectorAll('a[href]');
