@@ -21,8 +21,18 @@ class ArticleParser: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
     private static var activeParsers = Set<ArticleParser>()
     
     static func parse(htmlString: String, completion: @escaping (Result<ArticleData, Error>) -> Void) {
-        let parser = ArticleParser(htmlString: htmlString, completion: completion)
+        let cleanedHTML = stripScriptTags(from: htmlString)
+        let parser = ArticleParser(htmlString: cleanedHTML, completion: completion)
         activeParsers.insert(parser)
+    }
+    
+    private static func stripScriptTags(from html: String) -> String {
+        let pattern = "<script[^>]*>[\\s\\S]*?</script>"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
+            let range = NSRange(html.startIndex..<html.endIndex, in: html)
+            return regex.stringByReplacingMatches(in: html, options: [], range: range, withTemplate: "")
+        }
+        return html
     }
     
     private init(htmlString: String, completion: @escaping (Result<ArticleData, Error>) -> Void) {
@@ -49,11 +59,11 @@ class ArticleParser: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         let extractionJS = """
         (function() {
-            var title = document.querySelector('.topper__title')?.innerText || document.title;
-            var subtitle = document.querySelector('.topper__subtitle')?.innerText || '';
-            var byline = document.querySelector('.topper__byline')?.innerText || document.querySelector('.author-about__description h2')?.innerText || '';
-            var date = document.querySelector('.topper__date')?.innerText || '';
-            var issue = document.querySelector('.topper__issue')?.innerText || '';
+            var title = (document.querySelector('.topper__title')?.textContent || document.querySelector('.topper__title')?.innerText || document.title).trim();
+            var subtitle = (document.querySelector('.topper__subtitle')?.textContent || document.querySelector('.topper__subtitle')?.innerText || '').trim();
+            var byline = (document.querySelector('.topper__byline')?.textContent || document.querySelector('.topper__byline')?.innerText || document.querySelector('.author-about__description h2')?.textContent || document.querySelector('.author-about__description h2')?.innerText || '').trim();
+            var date = (document.querySelector('.topper__date')?.textContent || document.querySelector('.topper__date')?.innerText || '').trim();
+            var issue = (document.querySelector('.topper__issue')?.textContent || document.querySelector('.topper__issue')?.innerText || '').trim();
             
             // Extract Cover Image
             var imgEl = document.querySelector('.topper__image') || document.querySelector('.article__header-image img');
@@ -92,7 +102,7 @@ class ArticleParser: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
                         
                         // If it is a paragraph, header, or blockquote
                         if (tag === 'p' || tag === 'h3' || tag === 'blockquote') {
-                            var text = node.innerText.trim();
+                            var text = (node.textContent || node.innerText || '').trim();
                             if (text.length > 0) {
                                 elements.push({ type: tag, text: text });
                             }
@@ -115,11 +125,11 @@ class ArticleParser: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
             }
             
             var result = {
-                title: title.trim(),
-                subtitle: subtitle.trim(),
-                byline: byline.trim(),
-                date: date.trim(),
-                issue: issue.trim(),
+                title: title,
+                subtitle: subtitle,
+                byline: byline,
+                date: date,
+                issue: issue,
                 image: imgSrc,
                 elements: elements
             };
