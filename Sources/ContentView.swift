@@ -385,11 +385,37 @@ struct ContentView: View {
         .onChange(of: model.readerTheme) {
             updateWindowAppearance(for: model.readerTheme)
         }
+        .onChange(of: model.article?.title) {
+            updateWindowAppearance(for: model.readerTheme)
+        }
+        .onChange(of: model.translatedArticle?.title) {
+            updateWindowAppearance(for: model.readerTheme)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { notification in
+            if let window = notification.object as? NSWindow {
+                updateWindowAppearance(for: model.readerTheme, window: window)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { notification in
+            if let window = notification.object as? NSWindow {
+                updateWindowAppearance(for: model.readerTheme, window: window)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willExitFullScreenNotification)) { notification in
+            if let window = notification.object as? NSWindow {
+                updateWindowAppearance(for: model.readerTheme, window: window)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { notification in
+            if let window = notification.object as? NSWindow {
+                updateWindowAppearance(for: model.readerTheme, window: window)
+            }
+        }
     }
     
-    private func updateWindowAppearance(for theme: ReaderTheme) {
+    private func updateWindowAppearance(for theme: ReaderTheme, window: NSWindow? = nil) {
         DispatchQueue.main.async {
-            guard let window = NSApp.windows.first(where: { $0.isKeyWindow }) ?? NSApp.windows.first else { return }
+            guard let window = window ?? NSApp.mainWindow ?? NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isKeyWindow }) ?? NSApp.windows.first else { return }
             
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .visible
