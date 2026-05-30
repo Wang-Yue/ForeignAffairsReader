@@ -1,0 +1,31 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Xcode / Swift Build Directories
+.build/
+.swiftpm/
+DerivedData/
+build/
+*.xcodeproj/
+*.xcworkspace/
+*.app/
+
+# Binary products
+ForeignAffairsReader
+main_test
+*.o
+*.sib
+*.out
+
+# Temporary files / Test artifacts
+*.html
+*.log
+*.tmp
+*.swp
+*~
