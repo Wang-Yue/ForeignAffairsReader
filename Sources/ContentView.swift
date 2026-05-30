@@ -481,52 +481,64 @@ struct ContentView: View {
           }
 
           do {
-            // 1. Stream UI Strings
-            for originalString in model.uiStringsToTranslate {
-              let trimmed = originalString.trimmingCharacters(in: .whitespacesAndNewlines)
-              if trimmed.isEmpty {
-                await MainActor.run {
-                  model.translatedUI[originalString] = originalString
-                }
-              } else {
-                let trans = try await session.translate(originalString).targetText
-                await MainActor.run {
-                  model.translatedUI[originalString] = trans
+            // 1. Stream UI Strings (only if not already translated)
+            let isUIAlreadyTranslated = await MainActor.run { !model.translatedUI.isEmpty }
+            if !isUIAlreadyTranslated {
+              for originalString in model.uiStringsToTranslate {
+                let trimmed = originalString.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty {
+                  await MainActor.run {
+                    model.translatedUI[originalString] = originalString
+                  }
+                } else {
+                  let trans = try await session.translate(originalString).targetText
+                  await MainActor.run {
+                    model.translatedUI[originalString] = trans
+                  }
                 }
               }
             }
 
-            // 2. Stream Article List
-            await MainActor.run {
-              model.translatedArticleList = model.articleList
+            // 2. Stream Article List (only if not already translated)
+            let isListAlreadyTranslated = await MainActor.run {
+              guard model.translatedArticleList.count == model.articleList.count else { return false }
+              return zip(model.translatedArticleList, model.articleList).allSatisfy {
+                $0.0.url == $0.1.url && !$0.0.title.isEmpty && $0.0.title != $0.1.title
+              }
             }
-            for index in model.articleList.indices {
-              let header = model.articleList[index]
-              let transTitle =
-                header.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? "" : try await session.translate(header.title).targetText
-              let transSubtitle =
-                header.subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? "" : try await session.translate(header.subtitle).targetText
-              let transByline =
-                header.byline.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? "" : try await session.translate(header.byline).targetText
-              let transCategory =
-                header.category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? "" : try await session.translate(header.category).targetText
 
-              let translatedHeader = ArticleHeader(
-                url: header.url,
-                title: transTitle,
-                subtitle: transSubtitle,
-                byline: transByline,
-                image: header.image,
-                category: transCategory
-              )
-
+            if !isListAlreadyTranslated {
               await MainActor.run {
-                guard model.translatedArticleList.count == model.articleList.count else { return }
-                model.translatedArticleList[index] = translatedHeader
+                model.translatedArticleList = model.articleList
+              }
+              for index in model.articleList.indices {
+                let header = model.articleList[index]
+                let transTitle =
+                  header.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                  ? "" : try await session.translate(header.title).targetText
+                let transSubtitle =
+                  header.subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                  ? "" : try await session.translate(header.subtitle).targetText
+                let transByline =
+                  header.byline.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                  ? "" : try await session.translate(header.byline).targetText
+                let transCategory =
+                  header.category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                  ? "" : try await session.translate(header.category).targetText
+
+                let translatedHeader = ArticleHeader(
+                  url: header.url,
+                  title: transTitle,
+                  subtitle: transSubtitle,
+                  byline: transByline,
+                  image: header.image,
+                  category: transCategory
+                )
+
+                await MainActor.run {
+                  guard model.translatedArticleList.count == model.articleList.count else { return }
+                  model.translatedArticleList[index] = translatedHeader
+                }
               }
             }
 
