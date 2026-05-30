@@ -43,17 +43,18 @@ Designed to impress at first glance:
 ## 🏗️ Project Structure
 
 The workspace contains the following source files inside `./Sources/`:
-- [AppModel.swift](file:///Users/wangyue/ForeignAffairsReader/Sources/AppModel.swift): Shared observable application state holding current tabs, themes, text sizes, and extracted articles.
-- [WebView.swift](file:///Users/wangyue/ForeignAffairsReader/Sources/WebView.swift): SwiftUI Cocoa-wrapper representing standard `WKWebView` client, running custom JS layout optimization scripts, and listening to message handlers.
+- [Package.swift](file:///Users/wangyue/ForeignAffairsReader/Package.swift): Configuration for Swift Package Manager (SPM), enabling direct integration with Xcode, easy dependency management, and clean standard builds.
+- [AppModel.swift](file:///Users/wangyue/ForeignAffairsReader/Sources/AppModel.swift): Shared observable application state holding current themes, text sizes, and extracted articles.
 - [ReaderView.swift](file:///Users/wangyue/ForeignAffairsReader/Sources/ReaderView.swift): Represents the SwiftUI wrapper rendering the beautiful premium HTML page template and managing translation states.
-- [ContentView.swift](file:///Users/wangyue/ForeignAffairsReader/Sources/ContentView.swift): Implements the user interface including search navigation bar, glassmorphic layout, buttons, and tab selections.
-- [main.swift](file:///Users/wangyue/ForeignAffairsReader/Sources/main.swift): The programmatic application delegate initialization that spins up our NSWindow, attaches native macOS menus, and hosts the SwiftUI environment.
+- [ContentView.swift](file:///Users/wangyue/ForeignAffairsReader/Sources/ContentView.swift): Implements the user interface including sidebar feeding list, search, styling settings bar, and reader pane detail column.
+- [AppEntry.swift](file:///Users/wangyue/ForeignAffairsReader/Sources/AppEntry.swift): The programmatic application entry point that spins up our NSWindow, attaches native macOS menus, and hosts the SwiftUI environment (renamed from `main.swift` to conform to Swift Package Manager `@main` standards).
+- [WebView.swift](file:///Users/wangyue/ForeignAffairsReader/Sources/WebView.swift): Excluded layout experimental web view.
 
 ---
 
 ## ⚙️ How to Build and Run
 
-A convenient `Makefile` is provided to manage all build tasks. You can easily compile and launch the application directly from your terminal:
+A convenient `Makefile` is provided to manage all build tasks using Swift Package Manager. You can also **open this directory directly in Xcode** to build, run, and debug the application!
 
 - **Build and Launch:**
   ```bash
@@ -83,3 +84,4 @@ If you make any modifications to the Swift source files or the master applicatio
    ```bash
    make icon
    ```
+

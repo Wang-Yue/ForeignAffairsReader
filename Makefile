@@ -6,16 +6,7 @@ MACOS_DIR = $(APP_BUNDLE)/Contents/MacOS
 RESOURCES_DIR = $(APP_BUNDLE)/Contents/Resources
 EXECUTABLE = $(MACOS_DIR)/$(APP_NAME)
 
-SOURCES = Sources/AppModel.swift \
-          Sources/ArticleParser.swift \
-          Sources/ArticleListFetcher.swift \
-          Sources/ReaderView.swift \
-          Sources/ContentView.swift \
-          Sources/main.swift
-
-SDK_PATH = $(shell xcrun --show-sdk-path)
-SWIFTC = swiftc
-SWIFTC_FLAGS = -parse-as-library -O -sdk $(SDK_PATH)
+SOURCES = $(shell find Sources -type f)
 
 .PHONY: all build run clean icon
 
@@ -23,11 +14,11 @@ all: build
 
 build: $(EXECUTABLE)
 
-$(EXECUTABLE): $(SOURCES)
-	@echo "Building $(APP_NAME) with Swift..."
+$(EXECUTABLE): Package.swift $(SOURCES)
+	@echo "Building $(APP_NAME) using Swift Package Manager..."
+	@swift build -c release
 	@mkdir -p $(MACOS_DIR)
-	$(SWIFTC) $(SWIFTC_FLAGS) $(SOURCES) -o $(APP_NAME)
-	mv $(APP_NAME) $(MACOS_DIR)/
+	@cp -f .build/release/$(APP_NAME) $(MACOS_DIR)/
 	@cp -f Sources/Info.plist $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
 	@echo "Successfully compiled and bundled $(APP_BUNDLE)!"
 
@@ -37,8 +28,9 @@ run: build
 
 clean:
 	@echo "Cleaning up build files..."
-	rm -f $(APP_NAME)
-	rm -f $(MACOS_DIR)/$(APP_NAME)
+	@swift package clean 2>/dev/null || true
+	rm -rf .build
+	rm -rf $(APP_BUNDLE)
 	rm -rf AppIcon.iconset
 	rm -f AppIcon.icns
 
