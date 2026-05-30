@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 @preconcurrency import Translation
 
 struct ArticleCardView: View {
@@ -473,181 +474,7 @@ struct ContentView: View {
     .background(
       Color.clear
         .translationTask(model.translationConfig) { session in
-          guard model.selectedLanguage != "en", model.translationConfig != nil else { return }
-
-          await MainActor.run {
-            model.isLoading = true
-            model.extractionError = nil
-          }
-
-          do {
-            // 1. Stream UI Strings (only if not already translated)
-            let isUIAlreadyTranslated = await MainActor.run { !model.translatedUI.isEmpty }
-            if !isUIAlreadyTranslated {
-              for originalString in model.uiStringsToTranslate {
-                if Task.isCancelled { return }
-                let trimmed = originalString.trimmingCharacters(in: .whitespacesAndNewlines)
-                if trimmed.isEmpty {
-                  await MainActor.run {
-                    model.translatedUI[originalString] = originalString
-                  }
-                } else {
-                  let trans = try await session.translate(originalString).targetText
-                  await MainActor.run {
-                    model.translatedUI[originalString] = trans
-                  }
-                }
-              }
-            }
-
-            // 2. Stream Article List (only if not already translated)
-            let isListAlreadyTranslated = await MainActor.run {
-              guard model.translatedArticleList.count == model.articleList.count else {
-                return false
-              }
-              return zip(model.translatedArticleList, model.articleList).allSatisfy {
-                $0.0.url == $0.1.url && !$0.0.title.isEmpty && $0.0.title != $0.1.title
-              }
-            }
-
-            if !isListAlreadyTranslated {
-              await MainActor.run {
-                model.translatedArticleList = model.articleList
-              }
-              for index in model.articleList.indices {
-                if Task.isCancelled { return }
-                let header = model.articleList[index]
-                let transTitle =
-                  header.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                  ? "" : try await session.translate(header.title).targetText
-                let transSubtitle =
-                  header.subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                  ? "" : try await session.translate(header.subtitle).targetText
-                let transByline =
-                  header.byline.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                  ? "" : try await session.translate(header.byline).targetText
-                let transCategory =
-                  header.category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                  ? "" : try await session.translate(header.category).targetText
-
-                let translatedHeader = ArticleHeader(
-                  url: header.url,
-                  title: transTitle,
-                  subtitle: transSubtitle,
-                  byline: transByline,
-                  image: header.image,
-                  category: transCategory
-                )
-
-                await MainActor.run {
-                  guard model.translatedArticleList.count == model.articleList.count else { return }
-                  model.translatedArticleList[index] = translatedHeader
-                }
-              }
-            }
-
-            // 3. Stream Active Article (if any)
-            if let article = model.article {
-              // Initialize translatedArticle with current English article to display instantly
-              var currentTranslated = ArticleData(
-                title: article.title,
-                subtitle: article.subtitle,
-                byline: article.byline,
-                date: article.date,
-                issue: article.issue,
-                image: article.image,
-                elements: article.elements
-              )
-              await MainActor.run {
-                model.translatedArticle = currentTranslated
-                model.isLoading = false
-              }
-
-              // A. Translate Topper Fields
-              if Task.isCancelled { return }
-              let trimmedTitle = article.title.trimmingCharacters(in: .whitespacesAndNewlines)
-              let transTitle =
-                trimmedTitle.isEmpty ? "" : try await session.translate(article.title).targetText
-
-              if Task.isCancelled { return }
-              let trimmedSubtitle = article.subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
-              let transSubtitle =
-                trimmedSubtitle.isEmpty
-                ? "" : try await session.translate(article.subtitle).targetText
-
-              if Task.isCancelled { return }
-              let trimmedByline = article.byline.trimmingCharacters(in: .whitespacesAndNewlines)
-              let transByline =
-                trimmedByline.isEmpty ? "" : try await session.translate(article.byline).targetText
-
-              if Task.isCancelled { return }
-              let trimmedDate = article.date.trimmingCharacters(in: .whitespacesAndNewlines)
-              let transDate =
-                trimmedDate.isEmpty ? "" : try await session.translate(article.date).targetText
-
-              if Task.isCancelled { return }
-              let trimmedIssue = article.issue.trimmingCharacters(in: .whitespacesAndNewlines)
-              let transIssue =
-                trimmedIssue.isEmpty ? "" : try await session.translate(article.issue).targetText
-
-              currentTranslated = ArticleData(
-                title: transTitle,
-                subtitle: transSubtitle,
-                byline: transByline,
-                date: transDate,
-                issue: transIssue,
-                image: article.image,
-                elements: currentTranslated.elements
-              )
-              await MainActor.run {
-                model.translatedArticle = currentTranslated
-              }
-
-              // B. Translate Elements (paragraph-by-paragraph)
-              for index in article.elements.indices {
-                if Task.isCancelled { return }
-                let element = article.elements[index]
-                let trimmedElement = element.text.trimmingCharacters(in: .whitespacesAndNewlines)
-
-                let transText: String
-                if trimmedElement.isEmpty {
-                  transText = ""
-                } else {
-                  transText = try await session.translate(element.text).targetText
-                }
-
-                await MainActor.run {
-                  guard var currentElements = model.translatedArticle?.elements,
-                    currentElements.count == article.elements.count
-                  else { return }
-                  currentElements[index] = ArticleElement(type: element.type, text: transText)
-
-                  model.translatedArticle = ArticleData(
-                    title: transTitle,
-                    subtitle: transSubtitle,
-                    byline: transByline,
-                    date: transDate,
-                    issue: transIssue,
-                    image: article.image,
-                    elements: currentElements
-                  )
-                }
-              }
-            } else {
-              await MainActor.run {
-                model.translatedArticle = nil
-                model.isLoading = false
-              }
-            }
-          } catch {
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-              model.isLoading = false
-              model.extractionError =
-                "Native Apple Translation failed: \(error.localizedDescription)"
-              model.selectedLanguage = "en"
-            }
-          }
+          await translateContent(session: session)
         }
         .id("\(model.selectedLanguage)-\(model.translationTriggerCount)")
     )
@@ -671,6 +498,203 @@ struct ContentView: View {
     }
     .onChange(of: model.translatedArticle?.title) {
       updateWindowAppearance(for: model.readerTheme)
+    }
+  }
+
+  private func translateContent(session: TranslationSession) async {
+    guard model.selectedLanguage != "en", model.translationConfig != nil else { return }
+
+    model.isLoading = true
+    model.extractionError = nil
+
+    do {
+      // 1. Stream UI Strings (only if not already translated)
+      if model.translatedUI.isEmpty {
+        for originalString in model.uiStringsToTranslate {
+          model.translatedUI[originalString] = originalString
+        }
+        
+        var uiRequests: [TranslationSession.Request] = []
+        for originalString in model.uiStringsToTranslate {
+          let trimmed = originalString.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+          if !trimmed.isEmpty {
+            uiRequests.append(TranslationSession.Request(sourceText: originalString, clientIdentifier: originalString))
+          }
+        }
+        
+        if !uiRequests.isEmpty {
+          if Task.isCancelled { return }
+          let responses = session.translate(batch: uiRequests)
+          for try await response in responses {
+            if Task.isCancelled { return }
+            if let key = response.clientIdentifier {
+              model.translatedUI[key] = response.targetText
+            }
+          }
+        }
+      }
+
+      // 2. Stream Article List (only if not already translated)
+      let isListAlreadyTranslated = {
+        guard model.translatedArticleList.count == model.articleList.count else {
+          return false
+        }
+        return zip(model.translatedArticleList, model.articleList).allSatisfy {
+          $0.0.url == $0.1.url && !$0.0.title.isEmpty && $0.0.title != $0.1.title
+        }
+      }()
+
+      if !isListAlreadyTranslated {
+        model.translatedArticleList = model.articleList
+        
+        var listRequests: [TranslationSession.Request] = []
+        let headers = model.articleList
+        
+        for index in headers.indices {
+          let header = headers[index]
+          let fields = [header.title, header.subtitle, header.byline, header.category]
+          
+          for (fIdx, text) in fields.enumerated() {
+            let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+              let identifier = "\(index)-\(fIdx)"
+              listRequests.append(TranslationSession.Request(sourceText: text, clientIdentifier: identifier))
+            }
+          }
+        }
+        
+        if !listRequests.isEmpty {
+          if Task.isCancelled { return }
+          let responses = session.translate(batch: listRequests)
+          
+          var tempHeaders = headers
+          for try await response in responses {
+            if Task.isCancelled { return }
+            guard let identifier = response.clientIdentifier else { continue }
+            let parts = identifier.split(separator: "-")
+            guard parts.count == 2,
+                  let hIdx = Int(parts[0]),
+                  let fIdx = Int(parts[1]) else { continue }
+            
+            let transText = response.targetText
+            let header = tempHeaders[hIdx]
+            
+            switch fIdx {
+            case 0:
+              tempHeaders[hIdx] = ArticleHeader(url: header.url, title: transText, subtitle: header.subtitle, byline: header.byline, image: header.image, category: header.category)
+            case 1:
+              tempHeaders[hIdx] = ArticleHeader(url: header.url, title: header.title, subtitle: transText, byline: header.byline, image: header.image, category: header.category)
+            case 2:
+              tempHeaders[hIdx] = ArticleHeader(url: header.url, title: header.title, subtitle: header.subtitle, byline: transText, image: header.image, category: header.category)
+            case 3:
+              tempHeaders[hIdx] = ArticleHeader(url: header.url, title: header.title, subtitle: header.subtitle, byline: header.byline, image: header.image, category: transText)
+            default:
+              break
+            }
+            
+            model.translatedArticleList = tempHeaders
+          }
+        }
+      }
+
+      // 3. Stream Active Article (if any)
+      if let article = model.article {
+        var currentTranslated = ArticleData(
+          title: article.title,
+          subtitle: article.subtitle,
+          byline: article.byline,
+          date: article.date,
+          issue: article.issue,
+          image: article.image,
+          elements: article.elements
+        )
+        model.translatedArticle = currentTranslated
+        model.isLoading = false
+
+        var articleRequests: [TranslationSession.Request] = []
+        
+        // A. Topper Fields
+        let topperFields = [
+          (article.title, 0),
+          (article.subtitle, 1),
+          (article.byline, 2),
+          (article.date, 3),
+          (article.issue, 4)
+        ]
+        for (text, type) in topperFields {
+          let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+          if !trimmed.isEmpty {
+            let identifier = "topper-\(type)"
+            articleRequests.append(TranslationSession.Request(sourceText: text, clientIdentifier: identifier))
+          }
+        }
+        
+        // B. Elements (Paragraphs)
+        for index in article.elements.indices {
+          let element = article.elements[index]
+          let trimmed = element.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+          if !trimmed.isEmpty {
+            let identifier = "element-\(index)"
+            articleRequests.append(TranslationSession.Request(sourceText: element.text, clientIdentifier: identifier))
+          }
+        }
+        
+        if !articleRequests.isEmpty {
+          if Task.isCancelled { return }
+          let responses = session.translate(batch: articleRequests)
+          
+          var transTitle = article.title
+          var transSubtitle = article.subtitle
+          var transByline = article.byline
+          var transDate = article.date
+          var transIssue = article.issue
+          var transElements = article.elements
+          
+          for try await response in responses {
+            if Task.isCancelled { return }
+            guard let identifier = response.clientIdentifier else { continue }
+            let transText = response.targetText
+            
+            if identifier.hasPrefix("topper-") {
+              let typeString = identifier.replacingOccurrences(of: "topper-", with: "")
+              guard let type = Int(typeString) else { continue }
+              switch type {
+              case 0: transTitle = transText
+              case 1: transSubtitle = transText
+              case 2: transByline = transText
+              case 3: transDate = transText
+              case 4: transIssue = transText
+              default: break
+              }
+            } else if identifier.hasPrefix("element-") {
+              let indexString = identifier.replacingOccurrences(of: "element-", with: "")
+              guard let index = Int(indexString), index < transElements.count else { continue }
+              transElements[index] = ArticleElement(type: article.elements[index].type, text: transText)
+            }
+            
+            currentTranslated = ArticleData(
+              title: transTitle,
+              subtitle: transSubtitle,
+              byline: transByline,
+              date: transDate,
+              issue: transIssue,
+              image: article.image,
+              elements: transElements
+            )
+            
+            model.translatedArticle = currentTranslated
+          }
+        }
+      } else {
+        model.translatedArticle = nil
+        model.isLoading = false
+      }
+    } catch {
+      guard !Task.isCancelled else { return }
+      model.isLoading = false
+      model.extractionError =
+        "Native Apple Translation failed: \(error.localizedDescription)"
+      model.selectedLanguage = "en"
     }
   }
 
