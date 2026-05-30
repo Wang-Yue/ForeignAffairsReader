@@ -238,7 +238,8 @@ struct ContentView: View {
             ScrollView {
               LazyVStack(spacing: 4) {
                 let displayList =
-                  model.selectedLanguage == "en" ? model.articleList : model.translatedArticleList
+                  (model.selectedLanguage == "en" || model.translatedArticleList.isEmpty)
+                  ? model.articleList : model.translatedArticleList
                 ForEach(displayList) { articleHeader in
                   ArticleCardView(
                     article: articleHeader,

@@ -65,6 +65,9 @@ class AppModel {
         self.translatedUI = [:]
         self.translationConfig = nil
       } else {
+        self.translatedArticle = nil
+        self.translatedArticleList = []
+        self.translatedUI = [:]
         self.translationConfig = TranslationSession.Configuration(
           source: Locale.Language(identifier: "en"),
           target: Locale.Language(identifier: selectedLanguage)
