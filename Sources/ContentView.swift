@@ -485,6 +485,7 @@ struct ContentView: View {
             let isUIAlreadyTranslated = await MainActor.run { !model.translatedUI.isEmpty }
             if !isUIAlreadyTranslated {
               for originalString in model.uiStringsToTranslate {
+                if Task.isCancelled { return }
                 let trimmed = originalString.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty {
                   await MainActor.run {
@@ -512,6 +513,7 @@ struct ContentView: View {
                 model.translatedArticleList = model.articleList
               }
               for index in model.articleList.indices {
+                if Task.isCancelled { return }
                 let header = model.articleList[index]
                 let transTitle =
                   header.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -560,23 +562,28 @@ struct ContentView: View {
               }
 
               // A. Translate Topper Fields
+              if Task.isCancelled { return }
               let trimmedTitle = article.title.trimmingCharacters(in: .whitespacesAndNewlines)
               let transTitle =
                 trimmedTitle.isEmpty ? "" : try await session.translate(article.title).targetText
 
+              if Task.isCancelled { return }
               let trimmedSubtitle = article.subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
               let transSubtitle =
                 trimmedSubtitle.isEmpty
                 ? "" : try await session.translate(article.subtitle).targetText
 
+              if Task.isCancelled { return }
               let trimmedByline = article.byline.trimmingCharacters(in: .whitespacesAndNewlines)
               let transByline =
                 trimmedByline.isEmpty ? "" : try await session.translate(article.byline).targetText
 
+              if Task.isCancelled { return }
               let trimmedDate = article.date.trimmingCharacters(in: .whitespacesAndNewlines)
               let transDate =
                 trimmedDate.isEmpty ? "" : try await session.translate(article.date).targetText
 
+              if Task.isCancelled { return }
               let trimmedIssue = article.issue.trimmingCharacters(in: .whitespacesAndNewlines)
               let transIssue =
                 trimmedIssue.isEmpty ? "" : try await session.translate(article.issue).targetText
@@ -596,6 +603,7 @@ struct ContentView: View {
 
               // B. Translate Elements (paragraph-by-paragraph)
               for index in article.elements.indices {
+                if Task.isCancelled { return }
                 let element = article.elements[index]
                 let trimmedElement = element.text.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -630,6 +638,7 @@ struct ContentView: View {
               }
             }
           } catch {
+            guard !Task.isCancelled else { return }
             await MainActor.run {
               model.isLoading = false
               model.extractionError = "Native Apple Translation failed: \(error.localizedDescription)"
