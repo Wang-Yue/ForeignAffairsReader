@@ -53,23 +53,33 @@ The workspace contains the following source files inside `./Sources/`:
 
 ## ⚙️ How to Build and Run
 
-The application has already been compiled into a standalone native macOS App Bundle inside the workspace:
-- App Bundle: [ForeignAffairsReader.app](file:///Users/wangyue/ForeignAffairsReader/ForeignAffairsReader.app)
+A convenient `Makefile` is provided to manage all build tasks. You can easily compile and launch the application directly from your terminal:
 
-To run the app immediately from the terminal:
-```bash
-open ForeignAffairsReader.app
-```
-Or double-click the `ForeignAffairsReader.app` folder in macOS Finder!
+- **Build and Launch:**
+  ```bash
+  make run
+  ```
+- **Build Only:**
+  ```bash
+  make build
+  ```
+- **Clean Build Files:**
+  ```bash
+  make clean
+  ```
 
 ---
 
-### 🛠️ Re-compiling from Source
-If you make any changes to the Swift files, you can re-compile the application instantly from your terminal:
-```bash
-# Compile source files into executable
-swiftc -parse-as-library -O -sdk $(xcrun --show-sdk-path) Sources/AppModel.swift Sources/ArticleParser.swift Sources/WebView.swift Sources/ReaderView.swift Sources/ContentView.swift Sources/main.swift -o ForeignAffairsReader
+### 🛠️ Re-compiling from Source & Assets
 
-# Move the newly compiled binary into the App Bundle
-mv ForeignAffairsReader ForeignAffairsReader.app/Contents/MacOS/
-```
+If you make any modifications to the Swift source files or the master application icon:
+
+1. **To rebuild the application bundle:**
+   ```bash
+   make clean && make build
+   ```
+2. **To regenerate the macOS system AppIcon:**
+   If you update `icon.png`, compile it into standard multi-resolution `.icns` assets and package it into the bundle by running:
+   ```bash
+   make icon
+   ```
