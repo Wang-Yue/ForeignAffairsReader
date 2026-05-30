@@ -35,6 +35,20 @@ struct ReaderView: NSViewRepresentable {
       nsView.evaluateJavaScript("setTheme('\(model.readerTheme.cssClass)')", completionHandler: nil)
       nsView.evaluateJavaScript(
         "setFontSizeMultiplier(\(model.fontSizeMultiplier))", completionHandler: nil)
+
+      // Stream translated elements in place!
+      if let translated = model.translatedArticle {
+        for (idx, element) in translated.elements.enumerated() {
+          if context.coordinator.renderedElements[idx] != element.text {
+            let escapedText = element.text.replacingOccurrences(of: "\\", with: "\\\\")
+              .replacingOccurrences(of: "\"", with: "\\\"")
+              .replacingOccurrences(of: "\n", with: "\\\n")
+            let js = "var el = document.getElementById('el-\(idx)'); if (el) { el.innerText = \"\(escapedText)\"; }"
+            nsView.evaluateJavaScript(js, completionHandler: nil)
+            context.coordinator.renderedElements[idx] = element.text
+          }
+        }
+      }
     }
   }
 
@@ -150,13 +164,13 @@ struct ReaderView: NSViewRepresentable {
 
     // Generate HTML body paragraphs dynamically
     var bodyHtml = ""
-    for element in article.elements {
+    for (index, element) in article.elements.enumerated() {
       if element.type == "h3" {
-        bodyHtml += "<h3>\(element.text)</h3>"
+        bodyHtml += "<h3 id=\"el-\(index)\">\(element.text)</h3>"
       } else if element.type == "blockquote" {
-        bodyHtml += "<blockquote>\(element.text)</blockquote>"
+        bodyHtml += "<blockquote id=\"el-\(index)\">\(element.text)</blockquote>"
       } else {
-        bodyHtml += "<p>\(element.text)</p>"
+        bodyHtml += "<p id=\"el-\(index)\">\(element.text)</p>"
       }
     }
 
@@ -177,12 +191,19 @@ struct ReaderView: NSViewRepresentable {
 
     coordinator.lastArticleId = article.title
     coordinator.lastLanguage = model.selectedLanguage
+
+    // Initialize renderedElements cache
+    coordinator.renderedElements = [:]
+    for (index, element) in article.elements.enumerated() {
+      coordinator.renderedElements[index] = element.text
+    }
   }
 
   class Coordinator: NSObject, WKNavigationDelegate {
     var parent: ReaderView
     var lastArticleId: String? = nil
     var lastLanguage: String = "en"
+    var renderedElements: [Int: String] = [:]
 
     init(_ parent: ReaderView) {
       self.parent = parent

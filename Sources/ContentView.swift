@@ -475,26 +475,33 @@ struct ContentView: View {
         .translationTask(model.translationConfig) { session in
           guard model.selectedLanguage != "en", model.translationConfig != nil else { return }
 
-          model.isLoading = true
-          model.extractionError = nil
+          await MainActor.run {
+            model.isLoading = true
+            model.extractionError = nil
+          }
 
           do {
-            // 1. Translate UI Strings
-            var translatedUI = [String: String]()
+            // 1. Stream UI Strings
             for originalString in model.uiStringsToTranslate {
               let trimmed = originalString.trimmingCharacters(in: .whitespacesAndNewlines)
               if trimmed.isEmpty {
-                translatedUI[originalString] = originalString
+                await MainActor.run {
+                  model.translatedUI[originalString] = originalString
+                }
               } else {
                 let trans = try await session.translate(originalString).targetText
-                translatedUI[originalString] = trans
+                await MainActor.run {
+                  model.translatedUI[originalString] = trans
+                }
               }
             }
-            model.translatedUI = translatedUI
 
-            // 2. Translate Article List
-            var translatedList = [ArticleHeader]()
-            for header in model.articleList {
+            // 2. Stream Article List
+            await MainActor.run {
+              model.translatedArticleList = model.articleList
+            }
+            for index in model.articleList.indices {
+              let header = model.articleList[index]
               let transTitle =
                 header.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 ? "" : try await session.translate(header.title).targetText
@@ -508,20 +515,39 @@ struct ContentView: View {
                 header.category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 ? "" : try await session.translate(header.category).targetText
 
-              translatedList.append(
-                ArticleHeader(
-                  url: header.url,
-                  title: transTitle,
-                  subtitle: transSubtitle,
-                  byline: transByline,
-                  image: header.image,
-                  category: transCategory
-                ))
-            }
-            model.translatedArticleList = translatedList
+              let translatedHeader = ArticleHeader(
+                url: header.url,
+                title: transTitle,
+                subtitle: transSubtitle,
+                byline: transByline,
+                image: header.image,
+                category: transCategory
+              )
 
-            // 3. Translate Active Article (if any)
+              await MainActor.run {
+                guard model.translatedArticleList.count == model.articleList.count else { return }
+                model.translatedArticleList[index] = translatedHeader
+              }
+            }
+
+            // 3. Stream Active Article (if any)
             if let article = model.article {
+              // Initialize translatedArticle with current English article to display instantly
+              var currentTranslated = ArticleData(
+                title: article.title,
+                subtitle: article.subtitle,
+                byline: article.byline,
+                date: article.date,
+                issue: article.issue,
+                image: article.image,
+                elements: article.elements
+              )
+              await MainActor.run {
+                model.translatedArticle = currentTranslated
+                model.isLoading = false
+              }
+
+              // A. Translate Topper Fields
               let trimmedTitle = article.title.trimmingCharacters(in: .whitespacesAndNewlines)
               let transTitle =
                 trimmedTitle.isEmpty ? "" : try await session.translate(article.title).targetText
@@ -543,36 +569,60 @@ struct ContentView: View {
               let transIssue =
                 trimmedIssue.isEmpty ? "" : try await session.translate(article.issue).targetText
 
-              var transElements = [ArticleElement]()
-              for element in article.elements {
-                let trimmedElement = element.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                if trimmedElement.isEmpty {
-                  transElements.append(element)
-                } else {
-                  let transText = try await session.translate(element.text).targetText
-                  transElements.append(ArticleElement(type: element.type, text: transText))
-                }
-              }
-
-              let translated = ArticleData(
+              currentTranslated = ArticleData(
                 title: transTitle,
                 subtitle: transSubtitle,
                 byline: transByline,
                 date: transDate,
                 issue: transIssue,
                 image: article.image,
-                elements: transElements
+                elements: currentTranslated.elements
               )
-              model.translatedArticle = translated
-            } else {
-              model.translatedArticle = nil
-            }
+              await MainActor.run {
+                model.translatedArticle = currentTranslated
+              }
 
-            model.isLoading = false
+              // B. Translate Elements (paragraph-by-paragraph)
+              for index in article.elements.indices {
+                let element = article.elements[index]
+                let trimmedElement = element.text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                let transText: String
+                if trimmedElement.isEmpty {
+                  transText = ""
+                } else {
+                  transText = try await session.translate(element.text).targetText
+                }
+
+                await MainActor.run {
+                  guard var currentElements = model.translatedArticle?.elements,
+                    currentElements.count == article.elements.count
+                  else { return }
+                  currentElements[index] = ArticleElement(type: element.type, text: transText)
+
+                  model.translatedArticle = ArticleData(
+                    title: transTitle,
+                    subtitle: transSubtitle,
+                    byline: transByline,
+                    date: transDate,
+                    issue: transIssue,
+                    image: article.image,
+                    elements: currentElements
+                  )
+                }
+              }
+            } else {
+              await MainActor.run {
+                model.translatedArticle = nil
+                model.isLoading = false
+              }
+            }
           } catch {
-            model.isLoading = false
-            model.extractionError = "Native Apple Translation failed: \(error.localizedDescription)"
-            model.selectedLanguage = "en"
+            await MainActor.run {
+              model.isLoading = false
+              model.extractionError = "Native Apple Translation failed: \(error.localizedDescription)"
+              model.selectedLanguage = "en"
+            }
           }
         }
         .id("\(model.selectedLanguage)-\(model.translationTriggerCount)")
