@@ -195,7 +195,7 @@ struct ContentView: View {
         .onReceive(model.$urlString) { newUrl in
             self.urlText = newUrl
         }
-        .onChange(of: model.currentTab) { _, newTab in
+        .onChange(of: model.currentTab) { oldTab, newTab in
             if newTab == .reader {
                 // Reset translation state back to English whenever entering Reader Mode
                 model.selectedLanguage = "en"
@@ -263,6 +263,7 @@ struct ContentView: View {
                 }
             }
         }
+        .id(model.article?.title ?? "empty")
         .frame(minWidth: 850, minHeight: 600)
     }
 }

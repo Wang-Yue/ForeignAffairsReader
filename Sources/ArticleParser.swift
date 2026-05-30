@@ -1,6 +1,18 @@
 import Foundation
 import WebKit
 
+class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    weak var delegate: WKScriptMessageHandler?
+    
+    init(_ delegate: WKScriptMessageHandler) {
+        self.delegate = delegate
+    }
+    
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        delegate?.userContentController(userContentController, didReceive: message)
+    }
+}
+
 class ArticleParser: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
     private var backgroundWebView: WKWebView!
     private var completion: (Result<ArticleData, Error>) -> Void
@@ -19,7 +31,7 @@ class ArticleParser: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         
         let configuration = WKWebViewConfiguration()
         let contentController = WKUserContentController()
-        contentController.add(self, name: "faParser")
+        contentController.add(WeakScriptMessageHandler(self), name: "faParser")
         configuration.userContentController = contentController
         
         self.backgroundWebView = WKWebView(frame: .zero, configuration: configuration)
@@ -27,6 +39,10 @@ class ArticleParser: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         
         // Load the raw HTML string with a simulated base URL
         self.backgroundWebView.loadHTMLString(htmlString, baseURL: URL(string: "https://www.foreignaffairs.com"))
+    }
+    
+    deinit {
+        backgroundWebView?.configuration.userContentController.removeScriptMessageHandler(forName: "faParser")
     }
     
     // WKNavigationDelegate
@@ -96,10 +112,28 @@ class ArticleParser: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         })();
         """
         
-        webView.evaluateJavaScript(extractionJS, completionHandler: nil)
+        webView.evaluateJavaScript(extractionJS) { [weak self] result, error in
+            if let error = error {
+                self?.completion(.failure(error))
+                if let self = self {
+                    ArticleParser.activeParsers.remove(self)
+                }
+            }
+        }
     }
     
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        self.completion(.failure(error))
+        ArticleParser.activeParsers.remove(self)
+    }
+    
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        self.completion(.failure(error))
+        ArticleParser.activeParsers.remove(self)
+    }
+    
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        let error = NSError(domain: "ArticleParser", code: -1, userInfo: [NSLocalizedDescriptionKey: "Web content process terminated"])
         self.completion(.failure(error))
         ArticleParser.activeParsers.remove(self)
     }

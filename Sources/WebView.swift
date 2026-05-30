@@ -169,7 +169,7 @@ struct WebView: NSViewRepresentable {
                 var date = document.querySelector('.topper__date')?.innerText || '';
                 var issue = document.querySelector('.topper__issue')?.innerText || '';
                 
-                // Extract Image source
+                // Extract Cover Image
                 var imgEl = document.querySelector('.topper__image');
                 var imgSrc = '';
                 if (imgEl) {
@@ -180,24 +180,35 @@ struct WebView: NSViewRepresentable {
                     }
                 }
                 
-                // Extract content paragraphs
-                var bodyContent = '';
+                // Extract all structural paragraphs and elements recursively
+                var elements = [];
+                
+                function parseNodeList(container) {
+                    container.childNodes.forEach(function(node) {
+                        if (node.nodeType === 1) { // Element node
+                            var tag = node.tagName.toLowerCase();
+                            
+                            // If it is a paragraph, header, or blockquote
+                            if (tag === 'p' || tag === 'h3' || tag === 'blockquote') {
+                                var text = node.innerText.trim();
+                                if (text.length > 0) {
+                                    elements.push({ type: tag, text: text });
+                                }
+                            } else if (node.childNodes.length > 0) {
+                                // Recurse for nested structural divisions like figure or div blocks
+                                parseNodeList(node);
+                            }
+                        }
+                    });
+                }
+                
                 var paywallContent = document.querySelector('.paywall-content') || document.querySelector('.article-dropcap--inner');
                 if (paywallContent) {
-                    var clone = paywallContent.cloneNode(true);
-                    // Remove script, styles, paywalls, ads, signups inside the content
-                    clone.querySelectorAll('script, style, .paywall, .dfp-tag-wrapper, .loading-indicator, .inline-newsletter-sign-up').forEach(function(el) {
-                        el.remove();
-                    });
-                    bodyContent = clone.innerHTML;
+                    parseNodeList(paywallContent);
                 } else {
                     var bodyContentEl = document.querySelector('.article__body-content') || document.querySelector('.rich-text__inner');
                     if (bodyContentEl) {
-                        var clone = bodyContentEl.cloneNode(true);
-                        clone.querySelectorAll('script, style, .paywall, .dfp-tag-wrapper, .loading-indicator, .inline-newsletter-sign-up').forEach(function(el) {
-                            el.remove();
-                        });
-                        bodyContent = clone.innerHTML;
+                        parseNodeList(bodyContentEl);
                     }
                 }
                 
@@ -208,12 +219,13 @@ struct WebView: NSViewRepresentable {
                     date: date.trim(),
                     issue: issue.trim(),
                     image: imgSrc,
-                    body: bodyContent
+                    elements: elements
                 };
                 
                 window.webkit.messageHandlers.faReader.postMessage(JSON.stringify(result));
             })();
             """
+            
             webView.evaluateJavaScript(extractionJS) { result, error in
                 if let error = error {
                     DispatchQueue.main.async {
