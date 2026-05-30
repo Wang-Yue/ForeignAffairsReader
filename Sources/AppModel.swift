@@ -42,6 +42,8 @@ class AppModel {
 
   // Sidebar states
   var articleList: [ArticleHeader] = []
+  var translatedArticleList: [ArticleHeader] = []
+  var translatedUI: [String: String] = [:]
   var isListLoading: Bool = false
   var listError: String? = nil
   var sidebarSection: String = "Featured" {
@@ -59,6 +61,8 @@ class AppModel {
     didSet {
       if selectedLanguage == "en" {
         self.translatedArticle = nil
+        self.translatedArticleList = []
+        self.translatedUI = [:]
         self.translationConfig = nil
       } else {
         self.translationConfig = TranslationSession.Configuration(
@@ -88,8 +92,50 @@ class AppModel {
     ("it", "Italian"),
   ]
 
+  // Available UI strings to translate dynamically
+  let uiStringsToTranslate = [
+    "Reader Edition",
+    "Search articles...",
+    "Featured",
+    "Latest",
+    "Most Read",
+    "Fetching feed from live site...",
+    "No articles found",
+    "Try refining your query or browse a different section.",
+    "Retry",
+    "Translating Natively...",
+    "Preparing Reader Mode...",
+    "Translate",
+    "Decrease Font Size",
+    "Increase Font Size",
+    "Light Theme",
+    "Sepia Theme",
+    "Dark Theme",
+    "Welcome to Foreign Affairs",
+    "Select an article from the sidebar to begin reading in premium reader mode."
+  ]
+
   init() {
     fetchArticlesForCurrentSection()
+  }
+
+  func uiString(_ string: String) -> String {
+    if selectedLanguage == "en" {
+      return string
+    }
+    return translatedUI[string] ?? string
+  }
+
+  func triggerTranslationUpdate() {
+    guard selectedLanguage != "en" else { return }
+    let currentLanguage = selectedLanguage
+    self.translationConfig = nil
+    DispatchQueue.main.async {
+      self.translationConfig = TranslationSession.Configuration(
+        source: Locale.Language(identifier: "en"),
+        target: Locale.Language(identifier: currentLanguage)
+      )
+    }
   }
 
   func fetchArticlesForCurrentSection() {
@@ -120,6 +166,9 @@ class AppModel {
         let list = try await ArticleListFetcher.fetch(url: url)
         self.articleList = list
         self.isListLoading = false
+        if self.selectedLanguage != "en" {
+          self.triggerTranslationUpdate()
+        }
       } catch {
         self.listError = "Failed to fetch articles: \(error.localizedDescription)"
         self.articleList = []
@@ -142,7 +191,6 @@ class AppModel {
     self.isLoading = true
     self.extractionError = nil
     self.translatedArticle = nil
-    self.selectedLanguage = "en"
 
     Task {
       do {
@@ -165,6 +213,9 @@ class AppModel {
         self.loadedUrl = self.urlString
         self.extractionError = nil
         self.isLoading = false
+        if self.selectedLanguage != "en" {
+          self.triggerTranslationUpdate()
+        }
       } catch {
         self.extractionError = "Failed to retrieve or parse article: \(error.localizedDescription)"
         self.isLoading = false

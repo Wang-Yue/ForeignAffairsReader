@@ -122,8 +122,8 @@ struct ReaderView: NSViewRepresentable {
         </head>
         <body class="theme-\(themeClass)">
             <div class="icon">✦</div>
-            <h2>Welcome to Foreign Affairs</h2>
-            <p>Select an article from the sidebar to begin reading in premium reader mode.</p>
+            <h2>\(model.uiString("Welcome to Foreign Affairs"))</h2>
+            <p>\(model.uiString("Select an article from the sidebar to begin reading in premium reader mode."))</p>
             
             <script type="text/javascript">
                 function setTheme(theme) {
