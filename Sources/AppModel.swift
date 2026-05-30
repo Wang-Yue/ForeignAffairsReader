@@ -2,13 +2,6 @@ import Foundation
 import Combine
 import Translation
 
-enum ActiveTab: String, CaseIterable, Identifiable {
-    case browser = "Browser"
-    case reader = "Reader Mode"
-    
-    var id: String { self.rawValue }
-}
-
 enum ReaderTheme: String, CaseIterable, Identifiable {
     case light = "Light"
     case sepia = "Sepia"
@@ -37,17 +30,25 @@ struct ArticleData: Codable {
 }
 
 class AppModel: ObservableObject {
-    // Navigation and tabs
-    @Published var currentTab: ActiveTab = .browser
-    @Published var urlString: String = "https://www.foreignaffairs.com"
+    // Active article URL and extraction state
+    @Published var urlString: String = ""
     @Published var isLoading: Bool = false
-    
-    // Extracted Article
     @Published var article: ArticleData? = nil
     @Published var translatedArticle: ArticleData? = nil
     @Published var extractionError: String? = nil
-    
     @Published var loadedUrl: String? = nil
+    
+    // Sidebar states
+    @Published var articleList: [ArticleHeader] = []
+    @Published var isListLoading: Bool = false
+    @Published var listError: String? = nil
+    @Published var sidebarSection: String = "Featured" {
+        didSet {
+            searchQuery = ""
+            fetchArticlesForCurrentSection()
+        }
+    }
+    @Published var searchQuery: String = ""
     
     // Reader preferences
     @Published var readerTheme: ReaderTheme = .sepia
@@ -69,11 +70,6 @@ class AppModel: ObservableObject {
     // Translation trigger configuration
     @Published var translationConfig: TranslationSession.Configuration? = nil
     
-    // WebView triggers
-    @Published var triggerBack: Bool = false
-    @Published var triggerForward: Bool = false
-    @Published var triggerReload: Bool = false
-    
     // Available translation languages (Language Code, Display Name)
     let languages: [(code: String, name: String)] = [
         ("en", "English (Original)"),
@@ -89,6 +85,54 @@ class AppModel: ObservableObject {
         ("pt", "Portuguese"),
         ("it", "Italian")
     ]
+    
+    init() {
+        fetchArticlesForCurrentSection()
+    }
+    
+    func fetchArticlesForCurrentSection() {
+        let targetUrlString: String
+        if !searchQuery.isEmpty {
+            targetUrlString = "https://www.foreignaffairs.com/search/\(searchQuery.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? searchQuery)"
+        } else {
+            switch sidebarSection {
+            case "Featured":
+                targetUrlString = "https://www.foreignaffairs.com"
+            case "Latest":
+                targetUrlString = "https://www.foreignaffairs.com/search"
+            case "Most Read":
+                targetUrlString = "https://www.foreignaffairs.com/most-read"
+            default:
+                targetUrlString = "https://www.foreignaffairs.com"
+            }
+        }
+        
+        guard let url = URL(string: targetUrlString) else { return }
+        
+        DispatchQueue.main.async {
+            self.isListLoading = true
+            self.listError = nil
+        }
+        
+        ArticleListFetcher.fetch(url: url) { [weak self] result in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                self.isListLoading = false
+                switch result {
+                case .success(let list):
+                    self.articleList = list
+                case .failure(let error):
+                    self.listError = "Failed to fetch articles: \(error.localizedDescription)"
+                    self.articleList = []
+                }
+            }
+        }
+    }
+    
+    func selectArticle(_ header: ArticleHeader) {
+        self.urlString = header.url
+        self.extractReaderArticle()
+    }
     
     func extractReaderArticle() {
         guard let url = URL(string: urlString) else {
@@ -134,7 +178,6 @@ class AppModel: ObservableObject {
                             self.article = articleData
                             self.loadedUrl = self.urlString
                             self.extractionError = nil
-                            self.currentTab = .reader
                         case .failure(let parseError):
                             self.extractionError = "Failed to parse article data: \(parseError.localizedDescription)"
                         }

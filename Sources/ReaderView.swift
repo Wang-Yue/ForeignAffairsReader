@@ -33,32 +33,66 @@ struct ReaderView: NSViewRepresentable {
     
     private func loadArticleHTML(in webView: WKWebView, coordinator: Coordinator) {
         guard let article = model.translatedArticle ?? model.article else {
-            // Render a beautiful elegant placeholder if no article is loaded yet
+            let themeClass = model.readerTheme.cssClass
             let placeholderHTML = """
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
+                <link rel="preconnect" href="https://fonts.googleapis.com">
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
                 <style>
                     body {
                         background-color: #fdfbf7;
-                        color: #6f6c66;
-                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                        color: #1c1b1a;
+                        font-family: 'Playfair Display', Georgia, serif;
                         display: flex;
                         flex-direction: column;
                         justify-content: center;
                         align-items: center;
-                        height: 100vh;
+                        height: 90vh;
                         margin: 0;
                         text-align: center;
+                        transition: background-color 0.25s, color 0.25s;
                     }
-                    h2 { font-weight: 300; font-size: 24px; margin-bottom: 8px; }
-                    p { font-size: 14px; margin: 0; }
+                    body.theme-light {
+                        background-color: #ffffff;
+                        color: #111111;
+                    }
+                    body.theme-dark {
+                        background-color: #141414;
+                        color: #e0e0e0;
+                    }
+                    body.theme-sepia {
+                        background-color: #f4ecd8;
+                        color: #5c4033;
+                    }
+                    .icon {
+                        font-size: 48px;
+                        margin-bottom: 20px;
+                        opacity: 0.65;
+                    }
+                    h2 {
+                        font-weight: 400;
+                        font-size: 28px;
+                        margin-bottom: 12px;
+                        font-style: italic;
+                    }
+                    p {
+                        font-family: 'Inter', sans-serif;
+                        font-size: 14px;
+                        font-weight: 300;
+                        margin: 0;
+                        opacity: 0.75;
+                        letter-spacing: 0.5px;
+                    }
                 </style>
             </head>
-            <body>
-                <h2>No article loaded</h2>
-                <p>Browse Foreign Affairs and select "Reader Mode" to read full articles here.</p>
+            <body class="theme-\(themeClass)">
+                <div class="icon">✦</div>
+                <h2>Welcome to Foreign Affairs</h2>
+                <p>Select an article from the sidebar to begin reading in premium reader mode.</p>
             </body>
             </html>
             """

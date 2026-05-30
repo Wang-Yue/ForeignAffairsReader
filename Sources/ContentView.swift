@@ -1,208 +1,340 @@
 import SwiftUI
 import Translation
 
-struct ContentView: View {
-    @StateObject var model = AppModel()
-    @State private var urlText: String = "https://www.foreignaffairs.com"
+struct ArticleCardView: View {
+    let article: ArticleHeader
+    let isSelected: Bool
+    let action: () -> Void
+    
+    @State private var isHovered = false
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Elegant glassmorphic Toolbar
-            HStack(spacing: 15) {
-                // Navigation Controls
-                HStack(spacing: 8) {
-                    Button(action: { model.triggerBack = true }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: 28, height: 28)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(6)
+        Button(action: action) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(article.category)
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(isSelected ? .accentColor : .secondary)
+                        .tracking(1.2)
                     
-                    Button(action: { model.triggerForward = true }) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: 28, height: 28)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(6)
+                    Text(article.title)
+                        .font(.custom("Playfair Display", size: 13))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                     
-                    Button(action: { model.triggerReload = true }) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 12, weight: .semibold))
+                    if !article.byline.isEmpty {
+                        Text("By \(article.byline)")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
                     }
-                    .buttonStyle(.plain)
-                    .frame(width: 28, height: 28)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(6)
                 }
                 
-                // Address/Search Bar
+                Spacer()
+                
+                if !article.image.isEmpty {
+                    AsyncImage(url: URL(string: article.image)) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 50, height: 50)
+                                .cornerRadius(6)
+                        default:
+                            Color.secondary.opacity(0.1)
+                                .frame(width: 50, height: 50)
+                                .cornerRadius(6)
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.accentColor.opacity(0.15) : (isHovered ? Color.secondary.opacity(0.08) : Color.clear))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? Color.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.15)) {
+                self.isHovered = hovering
+            }
+        }
+    }
+}
+
+struct ContentView: View {
+    @StateObject var model = AppModel()
+    @State private var searchInput: String = ""
+    
+    var body: some View {
+        NavigationSplitView {
+            // Left Side: Sidebar
+            VStack(spacing: 0) {
+                // Premium Sidebar Header (Title & Subtitle)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Foreign Affairs")
+                        .font(.custom("Playfair Display", size: 20))
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    Text("Reader Edition")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .tracking(1.5)
+                        .textCase(.uppercase)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 20)
+                .padding(.bottom, 12)
+                
+                // Elegant Search Bar
                 HStack {
-                    Image(systemName: "globe")
+                    Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
                         .font(.system(size: 12))
                     
-                    TextField("URL", text: $urlText, onCommit: {
-                        var correctedUrl = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !correctedUrl.lowercased().hasPrefix("http://") && !correctedUrl.lowercased().hasPrefix("https://") {
-                            correctedUrl = "https://" + correctedUrl
-                        }
-                        model.urlString = correctedUrl
+                    TextField("Search articles...", text: $searchInput, onCommit: {
+                        model.searchQuery = searchInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                        model.fetchArticlesForCurrentSection()
                     })
                     .textFieldStyle(.plain)
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     
-                    if model.isLoading {
-                        ProgressView()
-                            .controlSize(.small)
+                    if !searchInput.isEmpty {
+                        Button(action: {
+                            searchInput = ""
+                            model.searchQuery = ""
+                            model.fetchArticlesForCurrentSection()
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 12))
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color(NSColor.controlBackgroundColor).opacity(0.8))
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
                 )
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
                 
-                // Tab Picker (Browser vs Reader Mode)
-                Picker("", selection: $model.currentTab) {
-                    ForEach(ActiveTab.allCases) { tab in
-                        Text(tab.rawValue).tag(tab)
+                // Custom Horizontal Capsule Selector for Categories
+                HStack(spacing: 4) {
+                    ForEach(["Featured", "Latest", "Most Read"], id: \.self) { section in
+                        Button(action: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                model.sidebarSection = section
+                            }
+                        }) {
+                            Text(section)
+                                .font(.system(size: 11, weight: model.sidebarSection == section ? .semibold : .medium))
+                                .foregroundColor(model.sidebarSection == section ? .primary : .secondary)
+                                .padding(.vertical, 6)
+                                .frame(maxWidth: .infinity)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(model.sidebarSection == section ? Color(NSColor.selectedControlColor).opacity(0.2) : Color.clear)
+                                )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 200)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(VisualEffectView(material: .headerView, blendingMode: .withinWindow))
-            
-            Divider()
-            
-            // Main Area
-            ZStack {
-                // Tab 1: Live Browser
-                WebView(model: model)
-                    .opacity(model.currentTab == .browser ? 1 : 0)
+                .padding(4)
+                .cornerRadius(8)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
                 
-                // Tab 2: Reader view with full article and controls
-                VStack(spacing: 0) {
-                    // Reader Controls Bar
-                    HStack(spacing: 15) {
-                        // Theme Picker
-                        HStack(spacing: 6) {
-                            Text("Theme:")
-                                .font(.system(size: 11, weight: .medium))
+                Divider()
+                
+                // Article List Scroll Area
+                ZStack {
+                    if model.isListLoading {
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Fetching feed from live site...")
+                                .font(.system(size: 11))
                                 .foregroundColor(.secondary)
-                            
-                            Picker("", selection: $model.readerTheme) {
-                                ForEach(ReaderTheme.allCases) { theme in
-                                    Text(theme.rawValue).tag(theme)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .frame(width: 160)
                         }
-                        
-                        Spacer()
-                        
-                        // Font size controls
-                        HStack(spacing: 4) {
-                            Button(action: {
-                                if model.fontSizeMultiplier > 0.6 {
-                                    model.fontSizeMultiplier -= 0.1
-                                }
-                            }) {
-                                Text("A-")
-                                    .font(.system(size: 11, weight: .bold))
-                            }
-                            .buttonStyle(.plain)
-                            .frame(width: 28, height: 24)
-                            .background(Color.secondary.opacity(0.1))
-                            .cornerRadius(4)
-                            
-                            Button(action: {
-                                if model.fontSizeMultiplier < 2.0 {
-                                    model.fontSizeMultiplier += 0.1
-                                }
-                            }) {
-                                Text("A+")
-                                    .font(.system(size: 11, weight: .bold))
-                            }
-                            .buttonStyle(.plain)
-                            .frame(width: 28, height: 24)
-                            .background(Color.secondary.opacity(0.1))
-                            .cornerRadius(4)
-                        }
-                        
-                        // Native Apple Translation Selection Dropdown
-                        HStack(spacing: 6) {
-                            Image(systemName: "translate")
-                                .font(.system(size: 12))
+                        .frame(maxHeight: .infinity)
+                    } else if let listErr = model.listError {
+                        VStack(spacing: 12) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 24))
                                 .foregroundColor(.secondary)
+                            Text(listErr)
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 20)
                             
-                            Picker("", selection: $model.selectedLanguage) {
-                                ForEach(model.languages, id: \.code) { lang in
-                                    Text(lang.name).tag(lang.code)
+                            Button("Retry") {
+                                model.fetchArticlesForCurrentSection()
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .frame(maxHeight: .infinity)
+                    } else if model.articleList.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "doc.text.magnifyingglass")
+                                .font(.system(size: 24))
+                                .foregroundColor(.secondary)
+                            Text("No articles found")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("Try refining your query or browse a different section.")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(30)
+                        .frame(maxHeight: .infinity)
+                    } else {
+                        ScrollView {
+                            LazyVStack(spacing: 4) {
+                                ForEach(model.articleList) { articleHeader in
+                                    ArticleCardView(
+                                        article: articleHeader,
+                                        isSelected: model.urlString == articleHeader.url,
+                                        action: {
+                                            model.selectArticle(articleHeader)
+                                        }
+                                    )
                                 }
                             }
-                            .frame(width: 160)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color(NSColor.windowBackgroundColor).opacity(0.6))
-                    
-                    Divider()
-                    
-                    ZStack {
-                        ReaderView(model: model)
-                        
-                        if model.isLoading {
-                            VStack(spacing: 15) {
-                                ProgressView()
-                                    .controlSize(.large)
-                                Text(model.selectedLanguage != "en" ? "Translating Natively..." : "Preparing Reader Mode...")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(30)
-                            .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow))
-                            .cornerRadius(16)
-                            .shadow(radius: 15)
-                        }
-                        
-                        if let err = model.extractionError {
-                            VStack {
-                                Text(err)
-                                    .foregroundColor(.white)
-                                    .multilineTextAlignment(.center)
-                                    .padding()
-                                    .background(Color.black.opacity(0.8))
-                                    .cornerRadius(8)
-                            }
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 12)
                         }
                     }
                 }
-                .opacity(model.currentTab == .reader ? 1 : 0)
             }
-        }
-        .onReceive(model.$urlString) { newUrl in
-            self.urlText = newUrl
-        }
-        .onChange(of: model.currentTab) { oldTab, newTab in
-            if newTab == .reader {
-                // Reset translation state back to English whenever entering Reader Mode
-                model.selectedLanguage = "en"
+            .navigationSplitViewColumnWidth(min: 320, ideal: 340, max: 400)
+        } detail: {
+            // Right Side: Premium Reader Panel
+            VStack(spacing: 0) {
+                // Top Reader Settings Bar
+                HStack(spacing: 15) {
+                    if let activeTitle = model.translatedArticle?.title ?? model.article?.title {
+                        Text(activeTitle)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Text("Reading Room")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    
+                    Spacer()
+                    
+                    // Theme Segment Picker
+                    Picker("", selection: $model.readerTheme) {
+                        ForEach(ReaderTheme.allCases) { theme in
+                            Text(theme.rawValue).tag(theme)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 150)
+                    
+                    // Font sizing triggers
+                    HStack(spacing: 4) {
+                        Button(action: {
+                            if model.fontSizeMultiplier > 0.6 {
+                                model.fontSizeMultiplier -= 0.1
+                            }
+                        }) {
+                            Text("A-")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 24, height: 20)
+                        .background(Color.secondary.opacity(0.15))
+                        .cornerRadius(4)
+                        
+                        Button(action: {
+                            if model.fontSizeMultiplier < 2.0 {
+                                model.fontSizeMultiplier += 0.1
+                            }
+                        }) {
+                            Text("A+")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 24, height: 20)
+                        .background(Color.secondary.opacity(0.15))
+                        .cornerRadius(4)
+                    }
+                    
+                    // Native Translation Dropdown Selection
+                    HStack(spacing: 4) {
+                        Image(systemName: "translate")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                        
+                        Picker("", selection: $model.selectedLanguage) {
+                            ForEach(model.languages, id: \.code) { lang in
+                                Text(lang.name).tag(lang.code)
+                            }
+                        }
+                        .frame(width: 140)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
                 
-                // Extract the article content and format reader mode
-                model.extractReaderArticle()
+                Divider()
+                
+                // Reader Pane Web Layout & Loader Hud overlays
+                ZStack {
+                    ReaderView(model: model)
+                    
+                    if model.isLoading {
+                        VStack(spacing: 15) {
+                            ProgressView()
+                                .controlSize(.large)
+                            Text(model.selectedLanguage != "en" ? "Translating Natively..." : "Preparing Reader Mode...")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(30)
+                        .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow))
+                        .cornerRadius(16)
+                        .shadow(radius: 15)
+                    }
+                    
+                    if let err = model.extractionError {
+                        VStack {
+                            Text(err)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                                .padding()
+                                .background(Color.black.opacity(0.8))
+                                .cornerRadius(8)
+                        }
+                    }
+                }
             }
+            .frame(minWidth: 500, idealWidth: 600, maxWidth: .infinity)
         }
         .translationTask(model.translationConfig) { session in
             guard let article = model.article else { return }
@@ -213,7 +345,6 @@ struct ContentView: View {
             }
             
             do {
-                // Translate Header Info
                 let trimmedTitle = article.title.trimmingCharacters(in: .whitespacesAndNewlines)
                 let transTitle = trimmedTitle.isEmpty ? "" : try await session.translate(article.title).targetText
                 
@@ -229,7 +360,6 @@ struct ContentView: View {
                 let trimmedIssue = article.issue.trimmingCharacters(in: .whitespacesAndNewlines)
                 let transIssue = trimmedIssue.isEmpty ? "" : try await session.translate(article.issue).targetText
                 
-                // Translate structured elements in sequence
                 var transElements = [ArticleElement]()
                 for element in article.elements {
                     let trimmedElement = element.text.trimmingCharacters(in: .whitespacesAndNewlines)

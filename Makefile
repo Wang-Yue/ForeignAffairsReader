@@ -8,7 +8,7 @@ EXECUTABLE = $(MACOS_DIR)/$(APP_NAME)
 
 SOURCES = Sources/AppModel.swift \
           Sources/ArticleParser.swift \
-          Sources/WebView.swift \
+          Sources/ArticleListFetcher.swift \
           Sources/ReaderView.swift \
           Sources/ContentView.swift \
           Sources/main.swift
