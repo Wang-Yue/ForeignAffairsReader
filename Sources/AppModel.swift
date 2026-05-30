@@ -112,7 +112,7 @@ class AppModel {
     "Sepia Theme",
     "Dark Theme",
     "Welcome to Foreign Affairs",
-    "Select an article from the sidebar to begin reading in premium reader mode."
+    "Select an article from the sidebar to begin reading in premium reader mode.",
   ]
 
   init() {
