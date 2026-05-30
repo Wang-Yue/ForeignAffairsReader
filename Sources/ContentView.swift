@@ -574,7 +574,7 @@ struct ContentView: View {
             model.selectedLanguage = "en"
           }
         }
-        .id(model.selectedLanguage)
+        .id("\(model.selectedLanguage)-\(model.translationTriggerCount)")
     )
     .id(model.article?.title ?? "empty")
     .frame(minWidth: 850, minHeight: 600)

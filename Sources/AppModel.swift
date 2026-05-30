@@ -69,12 +69,14 @@ class AppModel {
           source: Locale.Language(identifier: "en"),
           target: Locale.Language(identifier: selectedLanguage)
         )
+        self.translationTriggerCount += 1
       }
     }
   }
 
   // Translation trigger configuration
   var translationConfig: TranslationSession.Configuration? = nil
+  var translationTriggerCount: Int = 0
 
   // Available translation languages (Language Code, Display Name)
   let languages: [(code: String, name: String)] = [
@@ -128,14 +130,7 @@ class AppModel {
 
   func triggerTranslationUpdate() {
     guard selectedLanguage != "en" else { return }
-    let currentLanguage = selectedLanguage
-    self.translationConfig = nil
-    DispatchQueue.main.async {
-      self.translationConfig = TranslationSession.Configuration(
-        source: Locale.Language(identifier: "en"),
-        target: Locale.Language(identifier: currentLanguage)
-      )
-    }
+    translationTriggerCount += 1
   }
 
   func fetchArticlesForCurrentSection() {

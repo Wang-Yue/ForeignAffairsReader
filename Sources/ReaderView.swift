@@ -189,6 +189,26 @@ struct ReaderView: NSViewRepresentable {
       self.lastLanguage = parent.model.selectedLanguage
     }
 
+    func webView(
+      _ webView: WKWebView,
+      decidePolicyFor navigationAction: WKNavigationAction,
+      decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
+    ) {
+      if navigationAction.navigationType == .reload {
+        decisionHandler(.cancel)
+        self.parent.model.extractReaderArticle()
+        return
+      }
+
+      if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url {
+        decisionHandler(.cancel)
+        NSWorkspace.shared.open(url)
+        return
+      }
+
+      decisionHandler(.allow)
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
       // Sync settings immediately after loading completes
       webView.evaluateJavaScript(
