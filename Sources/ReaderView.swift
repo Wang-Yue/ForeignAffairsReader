@@ -43,7 +43,8 @@ struct ReaderView: NSViewRepresentable {
             let escapedText = element.text.replacingOccurrences(of: "\\", with: "\\\\")
               .replacingOccurrences(of: "\"", with: "\\\"")
               .replacingOccurrences(of: "\n", with: "\\\n")
-            let js = "var el = document.getElementById('el-\(idx)'); if (el) { el.innerText = \"\(escapedText)\"; }"
+            let js =
+              "var el = document.getElementById('el-\(idx)'); if (el) { el.innerText = \"\(escapedText)\"; }"
             nsView.evaluateJavaScript(js, completionHandler: nil)
             context.coordinator.renderedElements[idx] = element.text
           }

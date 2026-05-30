@@ -502,7 +502,9 @@ struct ContentView: View {
 
             // 2. Stream Article List (only if not already translated)
             let isListAlreadyTranslated = await MainActor.run {
-              guard model.translatedArticleList.count == model.articleList.count else { return false }
+              guard model.translatedArticleList.count == model.articleList.count else {
+                return false
+              }
               return zip(model.translatedArticleList, model.articleList).allSatisfy {
                 $0.0.url == $0.1.url && !$0.0.title.isEmpty && $0.0.title != $0.1.title
               }
@@ -641,7 +643,8 @@ struct ContentView: View {
             guard !Task.isCancelled else { return }
             await MainActor.run {
               model.isLoading = false
-              model.extractionError = "Native Apple Translation failed: \(error.localizedDescription)"
+              model.extractionError =
+                "Native Apple Translation failed: \(error.localizedDescription)"
               model.selectedLanguage = "en"
             }
           }
