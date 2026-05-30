@@ -4,6 +4,7 @@ import SwiftUI
 struct ArticleCardView: View {
     let article: ArticleHeader
     let isSelected: Bool
+    let theme: ReaderTheme
     let action: () -> Void
     
     @State private var isHovered = false
@@ -14,13 +15,13 @@ struct ArticleCardView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(article.category)
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(isSelected ? .accentColor : .secondary)
+                        .foregroundColor(isSelected ? theme.accentColor : theme.secondaryTextColor)
                         .tracking(1.2)
                     
                     Text(article.title)
                         .font(.custom("Playfair Display", size: 13))
                         .fontWeight(.semibold)
-                        .foregroundColor(.primary)
+                        .foregroundColor(theme.primaryTextColor)
                         .lineLimit(3)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
@@ -28,7 +29,7 @@ struct ArticleCardView: View {
                     if !article.byline.isEmpty {
                         Text("By \(article.byline)")
                             .font(.system(size: 10))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(theme.secondaryTextColor)
                             .lineLimit(1)
                     }
                 }
@@ -45,7 +46,7 @@ struct ArticleCardView: View {
                                 .frame(width: 50, height: 50)
                                 .cornerRadius(6)
                         default:
-                            Color.secondary.opacity(0.1)
+                            theme.secondaryTextColor.opacity(0.1)
                                 .frame(width: 50, height: 50)
                                 .cornerRadius(6)
                         }
@@ -57,11 +58,11 @@ struct ArticleCardView: View {
             .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.accentColor.opacity(0.15) : (isHovered ? Color.secondary.opacity(0.08) : Color.clear))
+                    .fill(theme.cardBackgroundColor(isSelected: isSelected, isHovered: isHovered))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
+                    .stroke(isSelected ? theme.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -86,11 +87,11 @@ struct ContentView: View {
                     Text("Foreign Affairs")
                         .font(.custom("Playfair Display", size: 20))
                         .fontWeight(.bold)
-                        .foregroundColor(.primary)
+                        .foregroundColor(model.readerTheme.primaryTextColor)
                     
                     Text("Reader Edition")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(model.readerTheme.secondaryTextColor)
                         .tracking(1.5)
                         .textCase(.uppercase)
                 }
@@ -102,7 +103,7 @@ struct ContentView: View {
                 // Elegant Search Bar
                 HStack {
                     Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(model.readerTheme.secondaryTextColor)
                         .font(.system(size: 12))
                     
                     TextField("Search articles...", text: $searchInput, onCommit: {
@@ -111,6 +112,7 @@ struct ContentView: View {
                     })
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
+                    .foregroundColor(model.readerTheme.primaryTextColor)
                     
                     if !searchInput.isEmpty {
                         Button(action: {
@@ -119,7 +121,7 @@ struct ContentView: View {
                             model.fetchArticlesForCurrentSection()
                         }) {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
+                                .foregroundColor(model.readerTheme.secondaryTextColor)
                                 .font(.system(size: 12))
                         }
                         .buttonStyle(.plain)
@@ -127,10 +129,11 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
+                .background(model.readerTheme.controlBackgroundColor)
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                        .stroke(model.readerTheme.borderColor, lineWidth: 1)
                 )
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
@@ -145,23 +148,33 @@ struct ContentView: View {
                         }) {
                             Text(section)
                                 .font(.system(size: 11, weight: model.sidebarSection == section ? .semibold : .medium))
-                                .foregroundColor(model.sidebarSection == section ? .primary : .secondary)
+                                .foregroundColor(model.sidebarSection == section ? model.readerTheme.primaryTextColor : model.readerTheme.secondaryTextColor)
                                 .padding(.vertical, 6)
                                 .frame(maxWidth: .infinity)
                                 .background(
                                     RoundedRectangle(cornerRadius: 6)
-                                        .fill(model.sidebarSection == section ? Color(NSColor.selectedControlColor).opacity(0.2) : Color.clear)
+                                        .fill(model.sidebarSection == section ? model.readerTheme.controlBackgroundColor : Color.clear)
+                                        .shadow(color: model.sidebarSection == section ? Color.black.opacity(model.readerTheme == .dark ? 0.3 : 0.06) : Color.clear, radius: 1, x: 0, y: 1)
                                 )
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(4)
-                .cornerRadius(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(model.readerTheme.sidebarBackgroundColor)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(model.readerTheme.borderColor, lineWidth: 1)
+                )
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
                 
-                Divider()
+                Rectangle()
+                    .fill(model.readerTheme.borderColor)
+                    .frame(height: 1)
                 
                 // Article List Scroll Area
                 ZStack {
@@ -171,17 +184,17 @@ struct ContentView: View {
                                 .controlSize(.small)
                             Text("Fetching feed from live site...")
                                 .font(.system(size: 11))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(model.readerTheme.secondaryTextColor)
                         }
                         .frame(maxHeight: .infinity)
                     } else if let listErr = model.listError {
                         VStack(spacing: 12) {
                             Image(systemName: "exclamationmark.triangle")
                                 .font(.system(size: 24))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(model.readerTheme.accentColor)
                             Text(listErr)
                                 .font(.system(size: 11))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(model.readerTheme.secondaryTextColor)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 20)
                             
@@ -195,12 +208,13 @@ struct ContentView: View {
                         VStack(spacing: 8) {
                             Image(systemName: "doc.text.magnifyingglass")
                                 .font(.system(size: 24))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(model.readerTheme.secondaryTextColor)
                             Text("No articles found")
                                 .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(model.readerTheme.primaryTextColor)
                             Text("Try refining your query or browse a different section.")
                                 .font(.system(size: 10))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(model.readerTheme.secondaryTextColor)
                                 .multilineTextAlignment(.center)
                         }
                         .padding(30)
@@ -212,6 +226,7 @@ struct ContentView: View {
                                     ArticleCardView(
                                         article: articleHeader,
                                         isSelected: model.urlString == articleHeader.url,
+                                        theme: model.readerTheme,
                                         action: {
                                             model.selectArticle(articleHeader)
                                         }
@@ -224,6 +239,7 @@ struct ContentView: View {
                     }
                 }
             }
+            .background(model.readerTheme.sidebarBackgroundColor)
             .navigationSplitViewColumnWidth(min: 320, ideal: 340, max: 400)
         } detail: {
             // Right Side: Reader View
@@ -236,26 +252,35 @@ struct ContentView: View {
                             .controlSize(.large)
                         Text(model.selectedLanguage != "en" ? "Translating Natively..." : "Preparing Reader Mode...")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(model.readerTheme.secondaryTextColor)
                     }
                     .padding(30)
-                    .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow))
-                    .cornerRadius(16)
-                    .shadow(radius: 15)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(model.readerTheme.controlBackgroundColor)
+                            .shadow(color: Color.black.opacity(model.readerTheme == .dark ? 0.4 : 0.08), radius: 15)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(model.readerTheme.borderColor, lineWidth: 1)
+                    )
                 }
                 
                 if let err = model.extractionError {
                     VStack {
                         Text(err)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(model.readerTheme == .dark ? .black : .white)
                             .multilineTextAlignment(.center)
                             .padding()
-                            .background(Color.black.opacity(0.8))
-                            .cornerRadius(8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(model.readerTheme.accentColor)
+                            )
                     }
                 }
             }
+            .background(model.readerTheme.backgroundColor)
             .frame(minWidth: 500, idealWidth: 600, maxWidth: .infinity)
             .navigationTitle(model.translatedArticle?.title ?? model.article?.title ?? "Reading Room")
             .toolbar {
@@ -354,6 +379,33 @@ struct ContentView: View {
         }
         .id(model.article?.title ?? "empty")
         .frame(minWidth: 850, minHeight: 600)
+        .onAppear {
+            updateWindowAppearance(for: model.readerTheme)
+        }
+        .onChange(of: model.readerTheme) {
+            updateWindowAppearance(for: model.readerTheme)
+        }
+    }
+    
+    private func updateWindowAppearance(for theme: ReaderTheme) {
+        DispatchQueue.main.async {
+            guard let window = NSApp.windows.first(where: { $0.isKeyWindow }) ?? NSApp.windows.first else { return }
+            
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .visible
+            
+            switch theme {
+            case .dark:
+                window.appearance = NSAppearance(named: .darkAqua)
+                window.backgroundColor = NSColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1.0)
+            case .light:
+                window.appearance = NSAppearance(named: .aqua)
+                window.backgroundColor = .white
+            case .sepia:
+                window.appearance = NSAppearance(named: .aqua)
+                window.backgroundColor = NSColor(red: 0.99, green: 0.98, blue: 0.97, alpha: 1.0)
+            }
+        }
     }
 }
 

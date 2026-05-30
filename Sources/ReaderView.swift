@@ -14,6 +14,9 @@ struct ReaderView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         
+        // Make WKWebView transparent so the native ReaderTheme background shines through
+        webView.setValue(false, forKey: "drawsBackground")
+        
         loadArticleHTML(in: webView, coordinator: context.coordinator)
         return webView
     }
@@ -43,9 +46,37 @@ struct ReaderView: NSViewRepresentable {
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
                 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
                 <style>
+                    :root {
+                        --bg-color: #fdfbf7;
+                        --text-color: #1c1b1a;
+                        --accent-color: #9e2a2b;
+                        --meta-color: #6f6c66;
+                    }
+                    
+                    body.theme-light {
+                        --bg-color: #ffffff;
+                        --text-color: #111111;
+                        --accent-color: #9e2a2b;
+                        --meta-color: #555555;
+                    }
+                    
+                    body.theme-dark {
+                        --bg-color: #141414;
+                        --text-color: #e0e0e0;
+                        --accent-color: #ff7b7b;
+                        --meta-color: #a0a0a0;
+                    }
+                    
+                    body.theme-sepia {
+                        --bg-color: #f4ecd8;
+                        --text-color: #5c4033;
+                        --accent-color: #8b0000;
+                        --meta-color: #705335;
+                    }
+                    
                     body {
-                        background-color: #fdfbf7;
-                        color: #1c1b1a;
+                        background-color: var(--bg-color);
+                        color: var(--text-color);
                         font-family: 'Playfair Display', Georgia, serif;
                         display: flex;
                         flex-direction: column;
@@ -56,36 +87,32 @@ struct ReaderView: NSViewRepresentable {
                         text-align: center;
                         transition: background-color 0.25s, color 0.25s;
                     }
-                    body.theme-light {
-                        background-color: #ffffff;
-                        color: #111111;
-                    }
-                    body.theme-dark {
-                        background-color: #141414;
-                        color: #e0e0e0;
-                    }
-                    body.theme-sepia {
-                        background-color: #f4ecd8;
-                        color: #5c4033;
-                    }
+                    
                     .icon {
+                        color: var(--accent-color);
                         font-size: 48px;
                         margin-bottom: 20px;
-                        opacity: 0.65;
+                        opacity: 0.85;
+                        transition: color 0.25s;
                     }
+                    
                     h2 {
                         font-weight: 400;
                         font-size: 28px;
                         margin-bottom: 12px;
                         font-style: italic;
+                        color: var(--text-color);
+                        transition: color 0.25s;
                     }
+                    
                     p {
                         font-family: 'Inter', sans-serif;
                         font-size: 14px;
                         font-weight: 300;
                         margin: 0;
-                        opacity: 0.75;
+                        color: var(--meta-color);
                         letter-spacing: 0.5px;
+                        transition: color 0.25s;
                     }
                 </style>
             </head>
@@ -93,6 +120,13 @@ struct ReaderView: NSViewRepresentable {
                 <div class="icon">✦</div>
                 <h2>Welcome to Foreign Affairs</h2>
                 <p>Select an article from the sidebar to begin reading in premium reader mode.</p>
+                
+                <script type="text/javascript">
+                    function setTheme(theme) {
+                        document.body.className = '';
+                        document.body.classList.add('theme-' + theme);
+                    }
+                </script>
             </body>
             </html>
             """
