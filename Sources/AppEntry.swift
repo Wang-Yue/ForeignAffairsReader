@@ -1,6 +1,7 @@
 import Cocoa
 import SwiftUI
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var window: NSWindow!
 
@@ -104,8 +105,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
 // Programmatic Main Execution
 @main
+@MainActor
 struct ForeignAffairsReaderApp {
-    static var delegate = AppDelegate()
+    static let delegate = AppDelegate()
     
     static func main() {
         let app = NSApplication.shared

@@ -1,7 +1,7 @@
 import Foundation
 import WebKit
 
-struct ArticleHeader: Identifiable, Codable, Equatable {
+struct ArticleHeader: Identifiable, Codable, Equatable, Sendable {
     var id: String { url }
     let url: String
     let title: String
@@ -11,7 +11,7 @@ struct ArticleHeader: Identifiable, Codable, Equatable {
     let category: String
 }
 
-struct ESHitSource: Codable {
+struct ESHitSource: Codable, Sendable {
     let title: [String]?
     let fa_url: [String]?
     let field_subtitle: [String]?
@@ -20,38 +20,42 @@ struct ESHitSource: Codable {
     let fa_node_primary_image_url__desktop_1x: [String]?
 }
 
-struct ESHit: Codable {
+struct ESHit: Codable, Sendable {
     let _source: ESHitSource
 }
 
-struct ESHitsContainer: Codable {
+struct ESHitsContainer: Codable, Sendable {
     let hits: [ESHit]
 }
 
-struct ESResponse: Codable {
+struct ESResponse: Codable, Sendable {
     let hits: ESHitsContainer
 }
 
+@MainActor
 class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
     private var backgroundWebView: WKWebView!
-    private var completion: (Result<[ArticleHeader], Error>) -> Void
+    private var completion: (Result<[ArticleHeader], any Error>) -> Void
     
     // Keep strong references to active fetchers so they don't get deallocated
     private static var activeFetchers = Set<ArticleListFetcher>()
     
-    static func fetch(url: URL, completion: @escaping (Result<[ArticleHeader], Error>) -> Void) {
+    static func fetch(url: URL) async throws -> [ArticleHeader] {
         // Intercept keyword searches and empty searches (Latest) and query the Elasticsearch API natively
         if url.pathComponents.contains("search") {
             let query = url.lastPathComponent == "search" ? "" : url.lastPathComponent
-            fetchNativeSearch(query: query, completion: completion)
-            return
+            return try await fetchNativeSearch(query: query)
         }
         
-        let fetcher = ArticleListFetcher(url: url, completion: completion)
-        activeFetchers.insert(fetcher)
+        return try await withCheckedThrowingContinuation { continuation in
+            let fetcher = ArticleListFetcher(url: url) { result in
+                continuation.resume(with: result)
+            }
+            activeFetchers.insert(fetcher)
+        }
     }
     
-    private init(url: URL, completion: @escaping (Result<[ArticleHeader], Error>) -> Void) {
+    private init(url: URL, completion: @escaping (Result<[ArticleHeader], any Error>) -> Void) {
         self.completion = completion
         super.init()
         
@@ -119,204 +123,208 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler
         }
     }
     
-    deinit {
-        backgroundWebView?.configuration.userContentController.removeScriptMessageHandler(forName: "faListParser")
-        backgroundWebView?.configuration.userContentController.removeScriptMessageHandler(forName: "faConsole")
-    }
-    
     // WKNavigationDelegate
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        print("ArticleListFetcher: didFinish loading URL: \(webView.url?.absoluteString ?? "nil")")
-        webView.evaluateJavaScript("document.documentElement.outerHTML") { html, error in
-            if let htmlString = html as? String {
-                let debugPath = "/Users/wangyue/.gemini/jetski/scratch/search_debug.html"
-                try? htmlString.write(toFile: debugPath, atomically: true, encoding: .utf8)
-                print("ArticleListFetcher: Saved dynamic HTML to \(debugPath)")
-            }
-        }
-        
-        let listJS = """
-        (function() {
-            var maxAttempts = 50; // 5 seconds total (50 * 100ms)
-            var attempt = 0;
+    nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        Task { @MainActor in
+            print("ArticleListFetcher: didFinish loading URL: \(webView.url?.absoluteString ?? "nil")")
+            do {
+                let html = try await webView.evaluateJavaScript("document.documentElement.outerHTML")
+                if let htmlString = html as? String {
+                    let debugPath = "/Users/wangyue/.gemini/jetski/scratch/search_debug.html"
+                    try? htmlString.write(toFile: debugPath, atomically: true, encoding: .utf8)
+                    print("ArticleListFetcher: Saved dynamic HTML to \(debugPath)")
+                }
+            } catch {}
             
-            function tryExtract() {
-                var articles = [];
-                var seenUrls = new Set();
-                var blacklist = new Set([
-                    'authors', 'issues', 'subscribe', 'newsletter', 'podcasts', 'reviews', 'tags', 'topics', 
-                    'regions', 'search', 'most-read', 'myaccount', 'about-foreign-affairs', 'submissions', 
-                    'permissions', 'feedback', 'accessibility-statement', 'sites', 'themes', 'user', 'rss.xml', 
-                    'graduateschoolforum', 'subscription', 'terms-use', 'privacy-policy', 'manage-preferences', 
-                    'events', 'mediakit', 'staff', 'frequently-asked-questions', 'books-and-reviews', 'magazine',
-                    'browse'
-                ]);
+            let listJS = """
+            (function() {
+                var maxAttempts = 50; // 5 seconds total (50 * 100ms)
+                var attempt = 0;
+                
+                function tryExtract() {
+                    var articles = [];
+                    var seenUrls = new Set();
+                    var blacklist = new Set([
+                        'authors', 'issues', 'subscribe', 'newsletter', 'podcasts', 'reviews', 'tags', 'topics', 
+                        'regions', 'search', 'most-read', 'myaccount', 'about-foreign-affairs', 'submissions', 
+                        'permissions', 'feedback', 'accessibility-statement', 'sites', 'themes', 'user', 'rss.xml', 
+                        'graduateschoolforum', 'subscription', 'terms-use', 'privacy-policy', 'manage-preferences', 
+                        'events', 'mediakit', 'staff', 'frequently-asked-questions', 'books-and-reviews', 'magazine',
+                        'browse'
+                    ]);
 
-                var anchors = document.querySelectorAll('a[href]');
-                anchors.forEach(function(a) {
-                    var href = a.getAttribute('href');
-                    if (!href) return;
-                    
-                    var urlObj;
-                    try {
-                        urlObj = new URL(href, window.location.origin);
-                    } catch(e) {
-                        return;
-                    }
-                    
-                    if (urlObj.origin !== window.location.origin) return;
-                    
-                    var pathname = urlObj.pathname;
-                    var segments = pathname.split('/').filter(Boolean);
-                    
-                    if (segments.length !== 2) return;
-                    
-                    var category = segments[0];
-                    var slug = segments[1];
-                    
-                    if (blacklist.has(category.toLowerCase())) return;
-                    
-                    var absoluteUrl = urlObj.origin + pathname;
-                    if (seenUrls.has(absoluteUrl)) return;
-                    
-                    var title = a.innerText.trim();
-                    if (title.length < 5) return;
-                    
-                    var container = a.closest('.card, [data-armstrong-id^="grid"], .col-12, .col-lg-6, .col-lg-5, article, li');
-                    var subtitle = '';
-                    var byline = '';
-                    var imgSrc = '';
-                    
-                    if (container) {
-                        var subtitleEl = container.querySelector('.body-s.c-text-secondary, .body-l.c-text, .card__deck, h3.body-l');
-                        if (subtitleEl && subtitleEl !== a.parentNode) {
-                            subtitle = subtitleEl.innerText.trim();
+                    var anchors = document.querySelectorAll('a[href]');
+                    anchors.forEach(function(a) {
+                        var href = a.getAttribute('href');
+                        if (!href) return;
+                        
+                        var urlObj;
+                        try {
+                            urlObj = new URL(href, window.location.origin);
+                        } catch(e) {
+                            return;
                         }
                         
-                        var authorLinks = container.querySelectorAll('a[href^="/authors/"]');
-                        if (authorLinks.length > 0) {
-                            var authors = [];
-                            authorLinks.forEach(function(auth) {
-                                authors.push(auth.innerText.trim());
-                            });
-                            byline = authors.join(', ');
-                        } else {
-                            var metaParagraphs = container.querySelectorAll('p.body-s, .body-s');
-                            metaParagraphs.forEach(function(p) {
-                                var text = p.innerText.trim();
-                                if (text && text !== subtitle && !text.includes(title) && text.length < 100) {
-                                    byline = text;
-                                }
-                            });
-                        }
+                        if (urlObj.origin !== window.location.origin) return;
                         
-                        var imgEl = container.querySelector('img');
-                        if (imgEl) {
-                            if (imgEl.dataset.src) {
-                                imgSrc = imgEl.dataset.src;
-                            } else if (imgEl.srcset) {
-                                var candidates = imgEl.srcset.split(',').map(function(s) {
-                                    var parts = s.trim().split(/\\\\s+/);
-                                    var url = parts[0];
-                                    var descriptor = parts[1] || '';
-                                    var width = 0;
-                                    if (descriptor.endsWith('w')) {
-                                        width = parseInt(descriptor.slice(0, -1), 10) || 0;
-                                    } else if (descriptor.endsWith('x')) {
-                                        width = parseFloat(descriptor.slice(0, -1)) * 1000 || 0;
-                                    }
-                                    return { url: url, width: width };
+                        var pathname = urlObj.pathname;
+                        var segments = pathname.split('/').filter(Boolean);
+                        
+                        if (segments.length !== 2) return;
+                        
+                        var category = segments[0];
+                        var slug = segments[1];
+                        
+                        if (blacklist.has(category.toLowerCase())) return;
+                        
+                        var absoluteUrl = urlObj.origin + pathname;
+                        if (seenUrls.has(absoluteUrl)) return;
+                        
+                        var title = a.innerText.trim();
+                        if (title.length < 5) return;
+                        
+                        var container = a.closest('.card, [data-armstrong-id^="grid"], .col-12, .col-lg-6, .col-lg-5, article, li');
+                        var subtitle = '';
+                        var byline = '';
+                        var imgSrc = '';
+                        
+                        if (container) {
+                            var subtitleEl = container.querySelector('.body-s.c-text-secondary, .body-l.c-text, .card__deck, h3.body-l');
+                            if (subtitleEl && subtitleEl !== a.parentNode) {
+                                subtitle = subtitleEl.innerText.trim();
+                            }
+                            
+                            var authorLinks = container.querySelectorAll('a[href^="/authors/"]');
+                            if (authorLinks.length > 0) {
+                                var authors = [];
+                                authorLinks.forEach(function(auth) {
+                                    authors.push(auth.innerText.trim());
                                 });
-                                if (candidates.length > 0) {
-                                    candidates.sort(function(a, b) { return b.width - a.width; });
-                                    imgSrc = candidates[0].url;
+                                byline = authors.join(', ');
+                            } else {
+                                var metaParagraphs = container.querySelectorAll('p.body-s, .body-s');
+                                metaParagraphs.forEach(function(p) {
+                                    var text = p.innerText.trim();
+                                    if (text && text !== subtitle && !text.includes(title) && text.length < 100) {
+                                        byline = text;
+                                    }
+                                });
+                            }
+                            
+                            var imgEl = container.querySelector('img');
+                            if (imgEl) {
+                                if (imgEl.dataset.src) {
+                                    imgSrc = imgEl.dataset.src;
+                                } else if (imgEl.srcset) {
+                                    var candidates = imgEl.srcset.split(',').map(function(s) {
+                                        var parts = s.trim().split(/\\\\s+/);
+                                        var url = parts[0];
+                                        var descriptor = parts[1] || '';
+                                        var width = 0;
+                                        if (descriptor.endsWith('w')) {
+                                            width = parseInt(descriptor.slice(0, -1), 10) || 0;
+                                        } else if (descriptor.endsWith('x')) {
+                                            width = parseFloat(descriptor.slice(0, -1)) * 1000 || 0;
+                                        }
+                                        return { url: url, width: width };
+                                    });
+                                    if (candidates.length > 0) {
+                                        candidates.sort(function(a, b) { return b.width - a.width; });
+                                        imgSrc = candidates[0].url;
+                                    }
+                                }
+                                if (!imgSrc) {
+                                    imgSrc = imgEl.src || '';
+                                }
+                                if (imgSrc.startsWith('data:')) {
+                                    imgSrc = '';
                                 }
                             }
-                            if (!imgSrc) {
-                                imgSrc = imgEl.src || '';
-                            }
-                            if (imgSrc.startsWith('data:')) {
-                                imgSrc = '';
-                            }
                         }
-                    }
-                    
-                    var displayCategory = category.replace(/-/g, ' ').toUpperCase();
-                    
-                    seenUrls.add(absoluteUrl);
-                    articles.push({
-                        url: absoluteUrl,
-                        title: title,
-                        subtitle: subtitle,
-                        byline: byline,
-                        image: imgSrc,
-                        category: displayCategory
+                        
+                        var displayCategory = category.replace(/-/g, ' ').toUpperCase();
+                        
+                        seenUrls.add(absoluteUrl);
+                        articles.push({
+                            url: absoluteUrl,
+                            title: title,
+                            subtitle: subtitle,
+                            byline: byline,
+                            image: imgSrc,
+                            category: displayCategory
+                        });
                     });
-                });
-                return articles;
-            }
-            
-            function poll() {
-                var results = tryExtract();
-                attempt++;
-                if (results.length > 0 || attempt >= maxAttempts) {
-                    window.webkit.messageHandlers.faListParser.postMessage(JSON.stringify(results));
-                } else {
-                    setTimeout(poll, 100);
+                    return articles;
                 }
-            }
-            
-            poll();
-        })();
-        """
-        webView.evaluateJavaScript(listJS) { [weak self] result, error in
-            if let error = error {
-                self?.completion(.failure(error))
-                if let self = self {
-                    ArticleListFetcher.activeFetchers.remove(self)
+                
+                function poll() {
+                    var results = tryExtract();
+                    attempt++;
+                    if (results.length > 0 || attempt >= maxAttempts) {
+                        window.webkit.messageHandlers.faListParser.postMessage(JSON.stringify(results));
+                    } else {
+                        setTimeout(poll, 100);
+                    }
                 }
+                
+                poll();
+            })();
+            """
+            do {
+                _ = try await webView.evaluateJavaScript(listJS)
+            } catch {
+                self.completion(.failure(error))
+                ArticleListFetcher.activeFetchers.remove(self)
             }
         }
     }
     
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        print("ArticleListFetcher: didFail navigation: \(error.localizedDescription)")
-        self.completion(.failure(error))
-        ArticleListFetcher.activeFetchers.remove(self)
-    }
-    
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        print("ArticleListFetcher: didFailProvisionalNavigation: \(error.localizedDescription)")
-        self.completion(.failure(error))
-        ArticleListFetcher.activeFetchers.remove(self)
-    }
-    
-    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        let error = NSError(domain: "ArticleListFetcher", code: -1, userInfo: [NSLocalizedDescriptionKey: "Web content process terminated"])
-        self.completion(.failure(error))
-        ArticleListFetcher.activeFetchers.remove(self)
-    }
-    
-    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        if message.name == "faConsole", let logString = message.body as? String {
-            print("ArticleListFetcher [JS CONSOLE]: \(logString)")
-            logToFile(logString)
-            return
-        }
-        if message.name == "faListParser", let bodyString = message.body as? String {
-            if let data = bodyString.data(using: .utf8) {
-                do {
-                    let list = try JSONDecoder().decode([ArticleHeader].self, from: data)
-                    self.completion(.success(list))
-                } catch {
-                    self.completion(.failure(error))
-                }
-            }
+    nonisolated func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+        Task { @MainActor in
+            print("ArticleListFetcher: didFail navigation: \(error.localizedDescription)")
+            self.completion(.failure(error))
             ArticleListFetcher.activeFetchers.remove(self)
         }
     }
     
-    private static func fetchNativeSearch(query: String, completion: @escaping (Result<[ArticleHeader], Error>) -> Void) {
+    nonisolated func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
+        Task { @MainActor in
+            print("ArticleListFetcher: didFailProvisionalNavigation: \(error.localizedDescription)")
+            self.completion(.failure(error))
+            ArticleListFetcher.activeFetchers.remove(self)
+        }
+    }
+    
+    nonisolated func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        Task { @MainActor in
+            let error = NSError(domain: "ArticleListFetcher", code: -1, userInfo: [NSLocalizedDescriptionKey: "Web content process terminated"])
+            self.completion(.failure(error))
+            ArticleListFetcher.activeFetchers.remove(self)
+        }
+    }
+    
+    nonisolated func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        Task { @MainActor in
+            if message.name == "faConsole", let logString = message.body as? String {
+                print("ArticleListFetcher [JS CONSOLE]: \(logString)")
+                self.logToFile(logString)
+                return
+            }
+            if message.name == "faListParser", let bodyString = message.body as? String {
+                if let data = bodyString.data(using: .utf8) {
+                    do {
+                        let list = try JSONDecoder().decode([ArticleHeader].self, from: data)
+                        self.completion(.success(list))
+                    } catch {
+                        self.completion(.failure(error))
+                    }
+                }
+                ArticleListFetcher.activeFetchers.remove(self)
+            }
+        }
+    }
+    
+    private static func fetchNativeSearch(query: String) async throws -> [ArticleHeader] {
         let url = URL(string: "https://www.foreignaffairs.com/fa-search.php")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -388,39 +396,21 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler
         }
         
         guard let data = jsonString.data(using: .utf8) else {
-            completion(.failure(NSError(domain: "Search", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid payload encoding"])))
-            return
+            throw NSError(domain: "Search", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid payload encoding"])
         }
         request.httpBody = data
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                completion(.failure(error))
-                return
-            }
-            
-            guard let data = data else {
-                completion(.failure(NSError(domain: "Search", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
-                return
-            }
-            
-            do {
-                let decoded = try JSONDecoder().decode(ESResponse.self, from: data)
-                let list = decoded.hits.hits.map { hit -> ArticleHeader in
-                    let src = hit._source
-                    let title = src.title?.first ?? ""
-                    let url = src.fa_url?.first ?? ""
-                    let subtitle = src.field_subtitle?.first ?? ""
-                    let byline = src.field_display_authors?.joined(separator: ", ") ?? ""
-                    let image = src.fa_node_primary_image_url__desktop_1x?.first ?? ""
-                    let category = src.fa_node_type_or_subtype?.first?.uppercased() ?? ""
-                    return ArticleHeader(url: url, title: title, subtitle: subtitle, byline: byline, image: image, category: category)
-                }
-                completion(.success(list))
-            } catch {
-                completion(.failure(error))
-            }
-        }.resume()
+        let (responseData, _) = try await URLSession.shared.data(for: request)
+        let decoded = try JSONDecoder().decode(ESResponse.self, from: responseData)
+        return decoded.hits.hits.map { hit -> ArticleHeader in
+            let src = hit._source
+            let title = src.title?.first ?? ""
+            let url = src.fa_url?.first ?? ""
+            let subtitle = src.field_subtitle?.first ?? ""
+            let byline = src.field_display_authors?.joined(separator: ", ") ?? ""
+            let image = src.fa_node_primary_image_url__desktop_1x?.first ?? ""
+            let category = src.fa_node_type_or_subtype?.first?.uppercased() ?? ""
+            return ArticleHeader(url: url, title: title, subtitle: subtitle, byline: byline, image: image, category: category)
+        }
     }
 }
-

@@ -18,5 +18,5 @@ let package = Package(
             exclude: ["Info.plist", "WebView.swift"]
         )
     ],
-    swiftLanguageModes: [.v5]
+    swiftLanguageModes: [.v6]
 )

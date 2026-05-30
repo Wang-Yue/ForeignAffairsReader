@@ -1,5 +1,5 @@
 import SwiftUI
-import Translation
+@preconcurrency import Translation
 
 struct ArticleCardView: View {
     let article: ArticleHeader
@@ -74,7 +74,7 @@ struct ArticleCardView: View {
 }
 
 struct ContentView: View {
-    @StateObject var model = AppModel()
+    @State private var model = AppModel()
     @State private var searchInput: String = ""
     
     var body: some View {
@@ -304,10 +304,8 @@ struct ContentView: View {
         .translationTask(model.translationConfig) { session in
             guard let article = model.article else { return }
             
-            DispatchQueue.main.async {
-                model.isLoading = true
-                model.extractionError = nil
-            }
+            model.isLoading = true
+            model.extractionError = nil
             
             do {
                 let trimmedTitle = article.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -346,16 +344,12 @@ struct ContentView: View {
                     elements: transElements
                 )
                 
-                DispatchQueue.main.async {
-                    model.translatedArticle = translated
-                    model.isLoading = false
-                }
+                model.translatedArticle = translated
+                model.isLoading = false
             } catch {
-                DispatchQueue.main.async {
-                    model.isLoading = false
-                    model.extractionError = "Native Apple Translation failed: \(error.localizedDescription)"
-                    model.selectedLanguage = "en"
-                }
+                model.isLoading = false
+                model.extractionError = "Native Apple Translation failed: \(error.localizedDescription)"
+                model.selectedLanguage = "en"
             }
         }
         .id(model.article?.title ?? "empty")
