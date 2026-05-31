@@ -375,6 +375,8 @@ struct ContentView: View {
                   .fill(model.readerTheme.accentColor)
               )
           }
+          .padding(.top, 20)
+          .transition(.move(edge: .top).combined(with: .opacity))
         }
       }
       .background(model.readerTheme.backgroundColor)
