@@ -28,7 +28,7 @@ struct ArticleCardView: View {
             .fixedSize(horizontal: false, vertical: true)
 
           if !article.byline.isEmpty {
-            Text("By \(article.byline)")
+            Text(article.byline)
               .font(.system(size: 10))
               .foregroundColor(theme.secondaryTextColor)
               .lineLimit(1)
