@@ -5,8 +5,12 @@ struct ForeignAffairsReaderApp: App {
   var body: some Scene {
     WindowGroup {
       ContentView()
-        .frame(minWidth: 850, minHeight: 600)
+        #if os(macOS)
+          .frame(minWidth: 850, minHeight: 600)
+        #endif
     }
-    .windowStyle(.hiddenTitleBar)
+    #if os(macOS)
+      .windowStyle(.hiddenTitleBar)
+    #endif
   }
 }

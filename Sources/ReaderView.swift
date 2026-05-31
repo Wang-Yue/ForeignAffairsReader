@@ -172,12 +172,20 @@ struct ReaderView: View {
   }
 }
 
+#if os(macOS)
+  import AppKit
+  typealias PlatformFont = NSFont
+#else
+  import UIKit
+  typealias PlatformFont = UIFont
+#endif
+
 // Helper extensions to dynamically select custom pre-installed fonts or fall back to beautiful system fonts
 extension Font {
   static func serif(size: CGFloat) -> Font {
-    if NSFont(name: "Playfair Display", size: size) != nil {
+    if PlatformFont(name: "Playfair Display", size: size) != nil {
       return .custom("Playfair Display", size: size)
-    } else if NSFont(name: "Georgia", size: size) != nil {
+    } else if PlatformFont(name: "Georgia", size: size) != nil {
       return .custom("Georgia", size: size)
     } else {
       return .system(size: size, design: .serif)
@@ -185,7 +193,7 @@ extension Font {
   }
 
   static func sansSerif(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-    if NSFont(name: "Inter", size: size) != nil {
+    if PlatformFont(name: "Inter", size: size) != nil {
       return .custom("Inter", size: size).weight(weight)
     } else {
       return .system(size: size, weight: weight, design: .default)
