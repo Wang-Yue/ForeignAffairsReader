@@ -62,42 +62,6 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     let configuration = WKWebViewConfiguration()
     let contentController = WKUserContentController()
     contentController.add(WeakScriptMessageHandler(self), name: "faListParser")
-    contentController.add(WeakScriptMessageHandler(self), name: "faConsole")
-
-    let consoleScript = WKUserScript(
-      source: """
-        (function() {
-            window.onerror = function(msg, url, line, col, error) {
-                window.webkit.messageHandlers.faConsole.postMessage("[WINDOW ERROR] " + msg + " at " + url + ":" + line + ":" + col);
-                return false;
-            };
-            window.addEventListener('unhandledrejection', function(event) {
-                window.webkit.messageHandlers.faConsole.postMessage("[UNHANDLED REJECTION] " + event.reason);
-            });
-            var origErr = console.error;
-            console.error = function() {
-                var msg = "[ERROR] " + Array.from(arguments).join(" ");
-                window.webkit.messageHandlers.faConsole.postMessage(msg);
-                origErr.apply(console, arguments);
-            };
-            var origWarn = console.warn;
-            console.warn = function() {
-                var msg = "[WARN] " + Array.from(arguments).join(" ");
-                window.webkit.messageHandlers.faConsole.postMessage(msg);
-                origWarn.apply(console, arguments);
-            };
-            var origLog = console.log;
-            console.log = function() {
-                var msg = "[LOG] " + Array.from(arguments).join(" ");
-                window.webkit.messageHandlers.faConsole.postMessage(msg);
-                origLog.apply(console, arguments);
-            };
-        })();
-        """,
-      injectionTime: .atDocumentStart,
-      forMainFrameOnly: false
-    )
-    contentController.addUserScript(consoleScript)
     configuration.userContentController = contentController
 
     self.backgroundWebView = WKWebView(frame: .zero, configuration: configuration)
@@ -111,32 +75,12 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     self.backgroundWebView.load(request)
   }
 
-  private func logToFile(_ message: String) {
-    let logPath = "/Users/wangyue/.gemini/jetski/scratch/js_console.log"
-    let line = "[\(Date())] " + message + "\n"
-    if let fileHandle = FileHandle(forWritingAtPath: logPath) {
-      fileHandle.seekToEndOfFile()
-      if let data = line.data(using: .utf8) {
-        fileHandle.write(data)
-      }
-      fileHandle.closeFile()
-    } else {
-      try? line.write(toFile: logPath, atomically: true, encoding: .utf8)
-    }
-  }
+
 
   // WKNavigationDelegate
   nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
     Task { @MainActor in
       print("ArticleListFetcher: didFinish loading URL: \(webView.url?.absoluteString ?? "nil")")
-      do {
-        let html = try await webView.evaluateJavaScript("document.documentElement.outerHTML")
-        if let htmlString = html as? String {
-          let debugPath = "/Users/wangyue/.gemini/jetski/scratch/search_debug.html"
-          try? htmlString.write(toFile: debugPath, atomically: true, encoding: .utf8)
-          print("ArticleListFetcher: Saved dynamic HTML to \(debugPath)")
-        }
-      } catch {}
 
       let listJS = """
         (function() {
@@ -316,11 +260,6 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     _ userContentController: WKUserContentController, didReceive message: WKScriptMessage
   ) {
     Task { @MainActor in
-      if message.name == "faConsole", let logString = message.body as? String {
-        print("ArticleListFetcher [JS CONSOLE]: \(logString)")
-        self.logToFile(logString)
-        return
-      }
       if message.name == "faListParser", let bodyString = message.body as? String {
         if let data = bodyString.data(using: .utf8) {
           do {
