@@ -1,6 +1,6 @@
 import Foundation
 import Observation
-@preconcurrency import Translation
+import Translation
 
 enum ReaderTheme: String, CaseIterable, Identifiable, Sendable {
   case light = "Light"

@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-@preconcurrency import Translation
+import Translation
 
 struct ArticleCardView: View {
   let article: ArticleHeader
