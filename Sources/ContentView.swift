@@ -80,6 +80,7 @@ struct ContentView: View {
   @State private var searchInput: String = ""
   @State private var columnVisibility: NavigationSplitViewVisibility = .all
   @State private var isFullScreen = false
+  @State private var selectedArticleHeader: ArticleHeader?
 
   var body: some View {
     NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -189,6 +190,7 @@ struct ContentView: View {
                     theme: model.readerTheme,
                     action: {
                       model.selectArticle(articleHeader)
+                      selectedArticleHeader = articleHeader
                     }
                   )
                 }
@@ -333,56 +335,16 @@ struct ContentView: View {
       }
       .background(model.readerTheme.sidebarBackgroundColor)
       .navigationSplitViewColumnWidth(min: 320, ideal: 340, max: 400)
+      #if os(iOS)
+        .navigationDestination(item: $selectedArticleHeader) { header in
+          DetailReaderView(model: model)
+          .navigationBarTitleDisplayMode(.inline)
+        }
+      #endif
     } detail: {
-      // Right Side: Reader View
-      ZStack {
-        ReaderView(model: model)
-
-        if model.isLoading {
-          VStack(spacing: 15) {
-            ProgressView()
-              .controlSize(.large)
-            Text(
-              model.uiString(
-                model.selectedLanguage != "en"
-                  ? "Translating Natively..." : "Preparing Reader Mode...")
-            )
-            .font(.system(size: 12, weight: .medium))
-            .foregroundColor(model.readerTheme.secondaryTextColor)
-          }
-          .padding(30)
-          .background(
-            RoundedRectangle(cornerRadius: 16)
-              .fill(model.readerTheme.controlBackgroundColor)
-              .shadow(
-                color: Color.black.opacity(model.readerTheme == .dark ? 0.4 : 0.08), radius: 15)
-          )
-          .overlay(
-            RoundedRectangle(cornerRadius: 16)
-              .stroke(model.readerTheme.borderColor, lineWidth: 1)
-          )
-        }
-
-        if let err = model.extractionError {
-          VStack {
-            Text(err)
-              .font(.system(size: 12, weight: .medium))
-              .foregroundColor(model.readerTheme == .dark ? .black : .white)
-              .multilineTextAlignment(.center)
-              .padding()
-              .background(
-                RoundedRectangle(cornerRadius: 8)
-                  .fill(model.readerTheme.accentColor)
-              )
-          }
-          .padding(.top, 20)
-          .transition(.move(edge: .top).combined(with: .opacity))
-        }
-      }
-      .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.extractionError)
-      .background(model.readerTheme.backgroundColor)
-      .frame(minWidth: 500, idealWidth: 600, maxWidth: .infinity)
-      .navigationTitle("")
+      DetailReaderView(model: model)
+        .frame(minWidth: 500, idealWidth: 600, maxWidth: .infinity)
+        .navigationTitle("")
     }
     .background(
       Color.clear
@@ -620,5 +582,58 @@ struct ContentView: View {
         "Native Apple Translation failed: \(error.localizedDescription)"
       model.selectedLanguage = "en"
     }
+  }
+}
+
+struct DetailReaderView: View {
+  var model: AppModel
+
+  var body: some View {
+    ZStack {
+      ReaderView(model: model)
+
+      if model.isLoading {
+        VStack(spacing: 15) {
+          ProgressView()
+            .controlSize(.large)
+          Text(
+            model.uiString(
+              model.selectedLanguage != "en"
+                ? "Translating Natively..." : "Preparing Reader Mode...")
+          )
+          .font(.system(size: 12, weight: .medium))
+          .foregroundColor(model.readerTheme.secondaryTextColor)
+        }
+        .padding(30)
+        .background(
+          RoundedRectangle(cornerRadius: 16)
+            .fill(model.readerTheme.controlBackgroundColor)
+            .shadow(
+              color: Color.black.opacity(model.readerTheme == .dark ? 0.4 : 0.08), radius: 15)
+        )
+        .overlay(
+          RoundedRectangle(cornerRadius: 16)
+            .stroke(model.readerTheme.borderColor, lineWidth: 1)
+        )
+      }
+
+      if let err = model.extractionError {
+        VStack {
+          Text(err)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundColor(model.readerTheme == .dark ? .black : .white)
+            .multilineTextAlignment(.center)
+            .padding()
+            .background(
+              RoundedRectangle(cornerRadius: 8)
+                .fill(model.readerTheme.accentColor)
+            )
+        }
+        .padding(.top, 20)
+        .transition(.move(edge: .top).combined(with: .opacity))
+      }
+    }
+    .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.extractionError)
+    .background(model.readerTheme.backgroundColor)
   }
 }

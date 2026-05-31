@@ -14,7 +14,7 @@ enum ReaderTheme: String, CaseIterable, Identifiable, Sendable {
   }
 }
 
-struct ArticleHeader: Identifiable, Codable, Equatable, Sendable {
+struct ArticleHeader: Identifiable, Codable, Hashable, Equatable, Sendable {
   var id: String { url }
   let url: String
   let title: String
