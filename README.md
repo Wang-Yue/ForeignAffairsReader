@@ -28,7 +28,7 @@ Designed to impress at first glance:
 ### 2. Native Apple Translation (On-Device ML)
 *Instead of relying on third-party web translation scripts, this app integrates Apple's native Translation framework.*
 - **Zero Third-Party Dependencies**: Translation is performed completely natively using Apple's secure, on-device machine learning models.
-- **Premium Serif Interface integration**: When you select a target language from the dropdown (Spanish, Chinese, French, Japanese, Korean, Russian, Arabic, Portuguese, Italian, German, and more), the system triggers a native `.translationTask` to translate the title, subtitle, byline, and every individual paragraph in sequence, dynamically updating the premium serif reading pane.
+- **Premium Serif Interface integration**: When you select a target language from the dropdown (Spanish, Chinese, French, Japanese, Korean, Russian, Arabic, Portuguese, Italian, German, and more), the system triggers a native `.translationTask` to translate the title, subtitle, and every individual paragraph in sequence, dynamically updating the premium serif reading pane.
 
 
 ### 3. Reader Style Tuning

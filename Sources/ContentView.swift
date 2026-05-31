@@ -547,6 +547,7 @@ struct ContentView: View {
           let fields = [header.title, header.subtitle, header.byline, header.category]
 
           for (fIdx, text) in fields.enumerated() {
+            if fIdx == 2 { continue } // Never translate byline
             let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
             if !trimmed.isEmpty {
               let identifier = "\(index)-\(fIdx)"
@@ -624,6 +625,7 @@ struct ContentView: View {
           (article.issue, 4),
         ]
         for (text, type) in topperFields {
+          if type == 2 { continue } // Never translate byline
           let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
           if !trimmed.isEmpty {
             let identifier = "topper-\(type)"
