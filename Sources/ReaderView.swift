@@ -83,42 +83,10 @@ struct ReaderView: View {
               .padding(.bottom, 12)
             }
 
-            // Article Body Paragraphs
-            VStack(alignment: .leading, spacing: 20) {
-              ForEach(0..<article.elements.count, id: \.self) { index in
-                let element = article.elements[index]
-                switch element.type {
-                case "h3":
-                  Text(element.text)
-                    .font(.sansSerif(size: 21 * model.fontSizeMultiplier, weight: .bold))
-                    .foregroundColor(model.readerTheme.accentColor)
-                    .padding(.top, 20)
-                    .fixedSize(horizontal: false, vertical: true)
-                case "blockquote":
-                  HStack(spacing: 0) {
-                    Rectangle()
-                      .fill(model.readerTheme.accentColor)
-                      .frame(width: 3)
-                    Text(element.text)
-                      .font(.serif(size: 22 * model.fontSizeMultiplier))
-                      .italic()
-                      .foregroundColor(model.readerTheme.secondaryTextColor)
-                      .lineSpacing(6)
-                      .padding(.leading, 20)
-                      .fixedSize(horizontal: false, vertical: true)
-                  }
-                  .padding(.vertical, 12)
-                default:
-                  // "p" or any fallback tag
-                  Text(element.text)
-                    .font(.serif(size: 18 * model.fontSizeMultiplier))
-                    .foregroundColor(model.readerTheme.primaryTextColor)
-                    .lineSpacing(8)
-                    .padding(.bottom, 8)
-                    .fixedSize(horizontal: false, vertical: true)
-                }
-              }
-            }
+            // Article Body Paragraphs (rendered as a single Text block to allow seamless cross-paragraph selection)
+            Text(buildBodyAttributedString(for: article))
+              .lineSpacing(8)
+              .fixedSize(horizontal: false, vertical: true)
           }
           .frame(maxWidth: 680)
           .frame(maxWidth: .infinity, alignment: .center)
@@ -162,6 +130,48 @@ struct ReaderView: View {
     .background(model.readerTheme.backgroundColor)
     .animation(.easeInOut(duration: 0.25), value: activeArticle == nil)
     .animation(.easeInOut(duration: 0.25), value: model.readerTheme)
+  }
+
+  private func buildBodyAttributedString(for article: ArticleData) -> AttributedString {
+    var result = AttributedString()
+
+    for (index, element) in article.elements.enumerated() {
+      var elementStr = AttributedString(element.text)
+
+      switch element.type {
+      case "h3":
+        elementStr.font = .sansSerif(size: 21 * model.fontSizeMultiplier, weight: .bold)
+        elementStr.foregroundColor = model.readerTheme.accentColor
+        if index > 0 {
+          result.append(AttributedString("\n\n"))
+        }
+        result.append(elementStr)
+
+      case "blockquote":
+        var prefixStr = AttributedString("┃   ")
+        prefixStr.font = .serif(size: 22 * model.fontSizeMultiplier)
+        prefixStr.foregroundColor = model.readerTheme.accentColor
+
+        elementStr.font = .serif(size: 22 * model.fontSizeMultiplier).italic()
+        elementStr.foregroundColor = model.readerTheme.secondaryTextColor
+
+        if index > 0 {
+          result.append(AttributedString("\n\n"))
+        }
+        result.append(prefixStr)
+        result.append(elementStr)
+
+      default:
+        elementStr.font = .serif(size: 18 * model.fontSizeMultiplier)
+        elementStr.foregroundColor = model.readerTheme.primaryTextColor
+        if index > 0 {
+          result.append(AttributedString("\n\n"))
+        }
+        result.append(elementStr)
+      }
+    }
+
+    return result
   }
 }
 
