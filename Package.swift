@@ -15,7 +15,7 @@ let package = Package(
       name: "ForeignAffairsReader",
       dependencies: [],
       path: "Sources",
-      exclude: ["Info.plist", "WebView.swift"]
+      exclude: ["Info.plist"]
     )
   ],
   swiftLanguageModes: [.v6]
