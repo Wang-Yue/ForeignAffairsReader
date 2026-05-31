@@ -379,6 +379,7 @@ struct ContentView: View {
           .transition(.move(edge: .top).combined(with: .opacity))
         }
       }
+      .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.extractionError)
       .background(model.readerTheme.backgroundColor)
       .frame(minWidth: 500, idealWidth: 600, maxWidth: .infinity)
       .navigationTitle("")

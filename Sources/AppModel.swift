@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import SwiftUI
 @preconcurrency import Translation
 
 enum ReaderTheme: String, CaseIterable, Identifiable, Sendable {
@@ -54,9 +53,7 @@ class AppModel {
         Task {
           try? await Task.sleep(nanoseconds: 5_000_000_000)
           if self.extractionError != nil {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-              self.extractionError = nil
-            }
+            self.extractionError = nil
           }
         }
       }
