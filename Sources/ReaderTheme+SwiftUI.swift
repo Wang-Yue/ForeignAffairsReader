@@ -37,7 +37,7 @@ extension ReaderTheme {
     case .light:
       return Color(hex: "#ffffff")
     case .sepia:
-      return Color(hex: "#fdfbf7")
+      return Color(hex: "#f4ecd8")
     case .dark:
       return Color(hex: "#141414")
     }

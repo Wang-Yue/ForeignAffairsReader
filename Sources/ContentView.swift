@@ -718,7 +718,7 @@ struct ContentView: View {
         window.backgroundColor = .white
       case .sepia:
         window.appearance = NSAppearance(named: .aqua)
-        window.backgroundColor = NSColor(red: 0.99, green: 0.98, blue: 0.97, alpha: 1.0)
+        window.backgroundColor = NSColor(red: 0.957, green: 0.925, blue: 0.847, alpha: 1.0)
       }
     }
   }
