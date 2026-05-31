@@ -1,443 +1,186 @@
 import SwiftUI
-import WebKit
 
-struct ReaderView: NSViewRepresentable {
+struct ReaderView: View {
   var model: AppModel
 
-  func makeCoordinator() -> Coordinator {
-    Coordinator(self)
-  }
-
-  func makeNSView(context: Context) -> WKWebView {
-    let configuration = WKWebViewConfiguration()
-    let webView = WKWebView(frame: .zero, configuration: configuration)
-    webView.navigationDelegate = context.coordinator
-    webView.customUserAgent =
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-
-    // Make WKWebView transparent so the native ReaderTheme background shines through
-    webView.setValue(false, forKey: "drawsBackground")
-
-    loadArticleHTML(in: webView, coordinator: context.coordinator)
-    return webView
-  }
-
-  func updateNSView(_ nsView: WKWebView, context: Context) {
+  var body: some View {
     let activeArticle = model.translatedArticle ?? model.article
 
-    // Check if the article itself changed, or if we need to reload the template
-    if context.coordinator.lastArticleId != activeArticle?.title
-      || context.coordinator.lastLanguage != model.selectedLanguage
-    {
-      loadArticleHTML(in: nsView, coordinator: context.coordinator)
-    } else {
-      // Update settings in real-time
-      nsView.evaluateJavaScript("setTheme('\(model.readerTheme.cssClass)')", completionHandler: nil)
-      nsView.evaluateJavaScript(
-        "setFontSizeMultiplier(\(model.fontSizeMultiplier))", completionHandler: nil)
+    ZStack {
+      if let article = activeArticle {
+        ScrollView {
+          VStack(alignment: .leading, spacing: 24) {
+            // Header Area
+            VStack(alignment: .leading, spacing: 16) {
+              if !article.issue.isEmpty {
+                Text(article.issue)
+                  .font(.sansSerif(size: 12, weight: .bold))
+                  .foregroundColor(model.readerTheme.accentColor)
+                  .tracking(1.5)
+                  .textCase(.uppercase)
+              }
 
-      // Stream translated elements in place!
-      if let translated = model.translatedArticle {
-        for (idx, element) in translated.elements.enumerated() {
-          if context.coordinator.renderedElements[idx] != element.text {
-            let escapedText = element.text.replacingOccurrences(of: "\\", with: "\\\\")
-              .replacingOccurrences(of: "\"", with: "\\\"")
-              .replacingOccurrences(of: "\n", with: "\\\n")
-            let js =
-              "var el = document.getElementById('el-\(idx)'); if (el) { el.innerText = \"\(escapedText)\"; }"
-            nsView.evaluateJavaScript(js, completionHandler: nil)
-            context.coordinator.renderedElements[idx] = element.text
+              Text(article.title)
+                .font(.serif(size: 36 * model.fontSizeMultiplier))
+                .fontWeight(.bold)
+                .foregroundColor(model.readerTheme.primaryTextColor)
+                .lineSpacing(6)
+                .fixedSize(horizontal: false, vertical: true)
+
+              if !article.subtitle.isEmpty {
+                Text(article.subtitle)
+                  .font(.serif(size: 19 * model.fontSizeMultiplier))
+                  .italic()
+                  .foregroundColor(model.readerTheme.secondaryTextColor)
+                  .lineSpacing(4)
+                  .fixedSize(horizontal: false, vertical: true)
+              }
+
+              Divider()
+                .background(model.readerTheme.borderColor)
+                .padding(.vertical, 8)
+
+              HStack {
+                if !article.byline.isEmpty {
+                  Text("By ")
+                    .font(.sansSerif(size: 13))
+                    .foregroundColor(model.readerTheme.secondaryTextColor)
+                  + Text(article.byline)
+                    .font(.sansSerif(size: 13, weight: .semibold))
+                    .foregroundColor(model.readerTheme.primaryTextColor)
+                }
+                Spacer()
+                if !article.date.isEmpty {
+                  Text(article.date)
+                    .font(.sansSerif(size: 13))
+                    .foregroundColor(model.readerTheme.secondaryTextColor)
+                }
+              }
+            }
+            .padding(.bottom, 12)
+
+            // Cover/Featured Image
+            if !article.image.isEmpty {
+              AsyncImage(url: URL(string: article.image)) { phase in
+                switch phase {
+                case .success(let image):
+                  image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .cornerRadius(8)
+                    .shadow(
+                      color: Color.black.opacity(model.readerTheme == .dark ? 0.3 : 0.06),
+                      radius: 16,
+                      x: 0,
+                      y: 6
+                    )
+                case .empty, .failure(_):
+                  EmptyView()
+                @unknown default:
+                  EmptyView()
+                }
+              }
+              .padding(.bottom, 12)
+            }
+
+            // Article Body Paragraphs
+            VStack(alignment: .leading, spacing: 20) {
+              ForEach(0..<article.elements.count, id: \.self) { index in
+                let element = article.elements[index]
+                switch element.type {
+                case "h3":
+                  Text(element.text)
+                    .font(.sansSerif(size: 21 * model.fontSizeMultiplier, weight: .bold))
+                    .foregroundColor(model.readerTheme.accentColor)
+                    .padding(.top, 20)
+                    .fixedSize(horizontal: false, vertical: true)
+                case "blockquote":
+                  HStack(spacing: 0) {
+                    Rectangle()
+                      .fill(model.readerTheme.accentColor)
+                      .frame(width: 3)
+                    Text(element.text)
+                      .font(.serif(size: 22 * model.fontSizeMultiplier))
+                      .italic()
+                      .foregroundColor(model.readerTheme.secondaryTextColor)
+                      .lineSpacing(6)
+                      .padding(.leading, 20)
+                      .fixedSize(horizontal: false, vertical: true)
+                  }
+                  .padding(.vertical, 12)
+                default:
+                  // "p" or any fallback tag
+                  Text(element.text)
+                    .font(.serif(size: 18 * model.fontSizeMultiplier))
+                    .foregroundColor(model.readerTheme.primaryTextColor)
+                    .lineSpacing(8)
+                    .padding(.bottom, 8)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+              }
+            }
           }
+          .frame(maxWidth: 680)
+          .frame(maxWidth: .infinity, alignment: .center)
+          .padding(.horizontal, 32)
+          .padding(.vertical, 48)
         }
-      }
-    }
-  }
-
-  private func loadArticleHTML(in webView: WKWebView, coordinator: Coordinator) {
-    guard let article = model.translatedArticle ?? model.article else {
-      let themeClass = model.readerTheme.cssClass
-      let placeholderHTML = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <link rel="preconnect" href="https://fonts.googleapis.com">
-            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-            <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
-            <style>
-                :root {
-                    --bg-color: #fdfbf7;
-                    --text-color: #1c1b1a;
-                    --accent-color: #9e2a2b;
-                    --meta-color: #6f6c66;
-                }
-                
-                body.theme-light {
-                    --bg-color: #ffffff;
-                    --text-color: #111111;
-                    --accent-color: #9e2a2b;
-                    --meta-color: #555555;
-                }
-                
-                body.theme-dark {
-                    --bg-color: #141414;
-                    --text-color: #e0e0e0;
-                    --accent-color: #ff7b7b;
-                    --meta-color: #a0a0a0;
-                }
-                
-                body.theme-sepia {
-                    --bg-color: #f4ecd8;
-                    --text-color: #5c4033;
-                    --accent-color: #8b0000;
-                    --meta-color: #705335;
-                }
-                
-                body {
-                    background-color: var(--bg-color);
-                    color: var(--text-color);
-                    font-family: 'Playfair Display', Georgia, serif;
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: center;
-                    align-items: center;
-                    height: 90vh;
-                    margin: 0;
-                    text-align: center;
-                    transition: background-color 0.25s, color 0.25s;
-                }
-                
-                .icon {
-                    color: var(--accent-color);
-                    font-size: 48px;
-                    margin-bottom: 20px;
-                    opacity: 0.85;
-                    transition: color 0.25s;
-                }
-                
-                h2 {
-                    font-weight: 400;
-                    font-size: 28px;
-                    margin-bottom: 12px;
-                    font-style: italic;
-                    color: var(--text-color);
-                    transition: color 0.25s;
-                }
-                
-                p {
-                    font-family: 'Inter', sans-serif;
-                    font-size: 14px;
-                    font-weight: 300;
-                    margin: 0;
-                    color: var(--meta-color);
-                    letter-spacing: 0.5px;
-                    transition: color 0.25s;
-                }
-            </style>
-        </head>
-        <body class="theme-\(themeClass)">
-            <div class="icon">✦</div>
-            <h2>\(model.uiString("Welcome to Foreign Affairs"))</h2>
-            <p>\(model.uiString("Select an article from the sidebar to begin reading in premium reader mode."))</p>
-            
-            <script type="text/javascript">
-                function setTheme(theme) {
-                    document.body.className = '';
-                    document.body.classList.add('theme-' + theme);
-                }
-            </script>
-        </body>
-        </html>
-        """
-      webView.loadHTMLString(placeholderHTML, baseURL: nil)
-      return
-    }
-
-    // Prepare Featured Image HTML
-    let imageDiv =
-      article.image.isEmpty
-      ? ""
-      : """
-      <div class="featured-image">
-          <img src="\(article.image)" alt="Featured Image">
-      </div>
-      """
-
-    // Generate HTML body paragraphs dynamically
-    var bodyHtml = ""
-    for (index, element) in article.elements.enumerated() {
-      if element.type == "h3" {
-        bodyHtml += "<h3 id=\"el-\(index)\">\(element.text)</h3>"
-      } else if element.type == "blockquote" {
-        bodyHtml += "<blockquote id=\"el-\(index)\">\(element.text)</blockquote>"
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
       } else {
-        bodyHtml += "<p id=\"el-\(index)\">\(element.text)</p>"
+        // Elegant Empty/Welcome Screen
+        VStack(spacing: 24) {
+          Spacer()
+          Text("✦")
+            .font(.system(size: 48))
+            .foregroundColor(model.readerTheme.accentColor)
+            .opacity(0.85)
+
+          Text(model.uiString("Welcome to Foreign Affairs"))
+            .font(.serif(size: 28))
+            .italic()
+            .foregroundColor(model.readerTheme.primaryTextColor)
+            .multilineTextAlignment(.center)
+
+          Text(
+            model.uiString(
+              "Select an article from the sidebar to begin reading in premium reader mode."
+            )
+          )
+          .font(.sansSerif(size: 14, weight: .light))
+          .foregroundColor(model.readerTheme.secondaryTextColor)
+          .multilineTextAlignment(.center)
+          .lineSpacing(6)
+          .frame(maxWidth: 380)
+
+          Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 40)
       }
     }
-
-    let html = getReaderHTML(
-      title: article.title,
-      subtitle: article.subtitle,
-      author: article.byline,
-      date: article.date,
-      issue: article.issue,
-      imageDiv: imageDiv,
-      body: bodyHtml,
-      theme: model.readerTheme.cssClass,
-      fontMultiplier: model.fontSizeMultiplier
-    )
-
-    // Base URL must be set to Foreign Affairs so relative resources work correctly
-    webView.loadHTMLString(html, baseURL: URL(string: "https://www.foreignaffairs.com"))
-
-    coordinator.lastArticleId = article.title
-    coordinator.lastLanguage = model.selectedLanguage
-
-    // Initialize renderedElements cache
-    coordinator.renderedElements = [:]
-    for (index, element) in article.elements.enumerated() {
-      coordinator.renderedElements[index] = element.text
-    }
-  }
-
-  class Coordinator: NSObject, WKNavigationDelegate {
-    var parent: ReaderView
-    var lastArticleId: String? = nil
-    var lastLanguage: String = "en"
-    var renderedElements: [Int: String] = [:]
-
-    init(_ parent: ReaderView) {
-      self.parent = parent
-      self.lastLanguage = parent.model.selectedLanguage
-    }
-
-    func webView(
-      _ webView: WKWebView,
-      decidePolicyFor navigationAction: WKNavigationAction,
-      decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
-    ) {
-      if navigationAction.navigationType == .reload {
-        decisionHandler(.cancel)
-        self.parent.model.extractReaderArticle()
-        return
-      }
-
-      if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url {
-        decisionHandler(.cancel)
-        NSWorkspace.shared.open(url)
-        return
-      }
-
-      decisionHandler(.allow)
-    }
-
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-      // Sync settings immediately after loading completes
-      webView.evaluateJavaScript(
-        "setTheme('\(parent.model.readerTheme.cssClass)')", completionHandler: nil)
-      webView.evaluateJavaScript(
-        "setFontSizeMultiplier(\(parent.model.fontSizeMultiplier))", completionHandler: nil)
-    }
+    .background(model.readerTheme.backgroundColor)
+    .animation(.easeInOut(duration: 0.25), value: activeArticle == nil)
+    .animation(.easeInOut(duration: 0.25), value: model.readerTheme)
   }
 }
 
-// Helper function for clean formatted template HTML
-func getReaderHTML(
-  title: String, subtitle: String, author: String, date: String, issue: String, imageDiv: String,
-  body: String, theme: String, fontMultiplier: Double
-) -> String {
-  return """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>\(title)</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-        <style>
-            :root {
-                --bg-color: #fdfbf7;
-                --text-color: #1c1b1a;
-                --accent-color: #9e2a2b;
-                --meta-color: #6f6c66;
-                --border-color: #e8e5dd;
-                --font-size-multiplier: \(fontMultiplier);
-            }
-            
-            body.theme-light {
-                --bg-color: #ffffff;
-                --text-color: #111111;
-                --accent-color: #9e2a2b;
-                --meta-color: #555555;
-                --border-color: #eaeaea;
-            }
-            
-            body.theme-dark {
-                --bg-color: #141414;
-                --text-color: #e0e0e0;
-                --accent-color: #ff7b7b;
-                --meta-color: #a0a0a0;
-                --border-color: #2a2a2a;
-            }
-            
-            body.theme-sepia {
-                --bg-color: #f4ecd8;
-                --text-color: #5c4033;
-                --accent-color: #8b0000;
-                --meta-color: #705335;
-                --border-color: #e4d9c4;
-            }
-            
-            body {
-                background-color: var(--bg-color);
-                color: var(--text-color);
-                font-family: 'Playfair Display', Georgia, serif;
-                line-height: 1.68;
-                margin: 0;
-                padding: 40px 20px;
-                transition: background-color 0.25s, color 0.25s;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .container {
-                max-width: 680px;
-                width: 100%;
-            }
-            
-            header {
-                border-bottom: 1px solid var(--border-color);
-                padding-bottom: 25px;
-                margin-bottom: 35px;
-            }
-            
-            .issue {
-                font-family: 'Inter', sans-serif;
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 1.5px;
-                color: var(--accent-color);
-                margin-bottom: 10px;
-            }
-            
-            h1 {
-                font-size: calc(36px * var(--font-size-multiplier));
-                line-height: 1.2;
-                margin: 0 0 15px 0;
-                font-weight: 700;
-                font-family: 'Playfair Display', Georgia, serif;
-            }
-            
-            .subtitle {
-                font-size: calc(19px * var(--font-size-multiplier));
-                line-height: 1.4;
-                font-style: italic;
-                color: var(--meta-color);
-                margin-bottom: 20px;
-            }
-            
-            .byline-container {
-                font-family: 'Inter', sans-serif;
-                font-size: 13px;
-                color: var(--meta-color);
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                flex-wrap: wrap;
-                gap: 10px;
-            }
-            
-            .author {
-                font-weight: 600;
-                color: var(--text-color);
-            }
-            
-            .featured-image {
-                margin-bottom: 35px;
-                border-radius: 8px;
-                overflow: hidden;
-                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-                width: 100%;
-            }
-            .featured-image img {
-                width: 100%;
-                height: auto;
-                display: block;
-            }
-            
-            .article-body {
-                font-size: calc(18px * var(--font-size-multiplier));
-                font-family: 'Playfair Display', Georgia, serif;
-            }
-            
-            p {
-                margin-top: 0;
-                margin-bottom: 1.7em;
-            }
-            
-            h3 {
-                font-family: 'Inter', sans-serif;
-                font-size: calc(21px * var(--font-size-multiplier));
-                font-weight: 600;
-                margin-top: 45px;
-                margin-bottom: 20px;
-                color: var(--accent-color);
-            }
-            
-            blockquote {
-                font-style: italic;
-                border-left: 3px solid var(--accent-color);
-                margin: 30px 0;
-                padding: 5px 0 5px 20px;
-                font-size: calc(22px * var(--font-size-multiplier));
-                color: var(--meta-color);
-            }
-            
-            a {
-                color: var(--accent-color);
-                text-decoration: none;
-                border-bottom: 1px solid var(--border-color);
-                transition: border-bottom-color 0.2s;
-            }
-            a:hover {
-                border-bottom-color: var(--accent-color);
-            }
-        </style>
-    </head>
-    <body class="theme-\(theme)">
-        <div class="container">
-            <header>
-                <div class="issue">\(issue)</div>
-                <h1>\(title)</h1>
-                <div class="subtitle">\(subtitle)</div>
-                <div class="byline-container">
-                    <div>By <span class="author">\(author)</span></div>
-                    <div>\(date)</div>
-                </div>
-            </header>
-            
-            \(imageDiv)
-            
-            <div class="article-body">
-                \(body)
-            </div>
-        </div>
+// Helper extensions to dynamically select custom pre-installed fonts or fall back to beautiful system fonts
+extension Font {
+  static func serif(size: CGFloat) -> Font {
+    if NSFont(name: "Playfair Display", size: size) != nil {
+      return .custom("Playfair Display", size: size)
+    } else if NSFont(name: "Georgia", size: size) != nil {
+      return .custom("Georgia", size: size)
+    } else {
+      return .system(size: size, design: .serif)
+    }
+  }
 
-        <script type="text/javascript">
-            function setTheme(theme) {
-                document.body.className = '';
-                document.body.classList.add('theme-' + theme);
-            }
-            
-            function setFontSizeMultiplier(mult) {
-                document.documentElement.style.setProperty('--font-size-multiplier', mult);
-            }
-        </script>
-    </body>
-    </html>
-    """
+  static func sansSerif(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+    if NSFont(name: "Inter", size: size) != nil {
+      return .custom("Inter", size: size).weight(weight)
+    } else {
+      return .system(size: size, weight: weight, design: .default)
+    }
+  }
 }
