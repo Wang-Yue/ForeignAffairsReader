@@ -1,5 +1,4 @@
 import Foundation
-import WebKit
 
 struct ArticleHeader: Identifiable, Codable, Equatable, Sendable {
   var id: String { url }
@@ -32,226 +31,32 @@ struct ESResponse: Codable, Sendable {
   let hits: ESHitsContainer
 }
 
-@MainActor
-class ArticleListFetcher: NSObject, WKNavigationDelegate {
-  private var backgroundWebView: WKWebView!
-  private var completion: (Result<[ArticleHeader], any Error>) -> Void
-
-  private static var activeFetchers = Set<ArticleListFetcher>()
-
+class ArticleListFetcher {
   static func fetch(url: URL) async throws -> [ArticleHeader] {
     if url.pathComponents.contains("search") {
       let query = url.lastPathComponent == "search" ? "" : url.lastPathComponent
       return try await fetchNativeSearch(query: query)
     }
 
-    return try await withCheckedThrowingContinuation { continuation in
-      let fetcher = ArticleListFetcher(url: url) { result in
-        continuation.resume(with: result)
-      }
-      activeFetchers.insert(fetcher)
-    }
-  }
-
-  private init(url: URL, completion: @escaping (Result<[ArticleHeader], any Error>) -> Void) {
-    self.completion = completion
-    super.init()
-
-    let configuration = WKWebViewConfiguration()
-    self.backgroundWebView = WKWebView(frame: .zero, configuration: configuration)
-    self.backgroundWebView.navigationDelegate = self
-
-    var request = URLRequest(url: url)
+    // Use the RSS feed URL for all other list fetches
+    let rssURL = URL(string: "https://www.foreignaffairs.com/rss.xml")!
+    var request = URLRequest(url: rssURL)
     request.setValue(
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       forHTTPHeaderField: "User-Agent")
 
-    self.backgroundWebView.load(request)
-  }
+    let (responseData, _) = try await URLSession.shared.data(for: request)
+    let parser = RSSParser()
+    let list = parser.parse(xmlData: responseData)
 
-  // WKNavigationDelegate
-  nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-    Task { @MainActor in
-      print("ArticleListFetcher: didFinish loading URL: \(webView.url?.absoluteString ?? "nil")")
-
-      let extractionJS = """
-        (function() {
-            var articles = [];
-            var seenUrls = new Set();
-            var blacklist = new Set([
-                'authors', 'issues', 'subscribe', 'newsletter', 'podcasts', 'reviews', 'tags', 'topics', 
-                'regions', 'search', 'most-read', 'myaccount', 'about-foreign-affairs', 'submissions', 
-                'permissions', 'feedback', 'accessibility-statement', 'sites', 'themes', 'user', 'rss.xml', 
-                'graduateschoolforum', 'subscription', 'terms-use', 'privacy-policy', 'manage-preferences', 
-                'events', 'mediakit', 'staff', 'frequently-asked-questions', 'books-and-reviews', 'magazine',
-                'browse'
-            ]);
-
-            var anchors = document.querySelectorAll('a[href]');
-            anchors.forEach(function(a) {
-                var href = a.getAttribute('href');
-                if (!href) return;
-                
-                var urlObj;
-                try {
-                    urlObj = new URL(href, window.location.origin);
-                } catch(e) {
-                    return;
-                }
-                
-                if (urlObj.origin !== window.location.origin) return;
-                
-                var pathname = urlObj.pathname;
-                var segments = pathname.split('/').filter(Boolean);
-                
-                if (segments.length !== 2) return;
-                
-                var category = segments[0];
-                var slug = segments[1];
-                
-                if (blacklist.has(category.toLowerCase())) return;
-                
-                var absoluteUrl = urlObj.origin + pathname;
-                if (seenUrls.has(absoluteUrl)) return;
-                
-                var title = a.innerText.trim();
-                if (title.length < 5) return;
-                
-                var container = a.closest('.card, [data-armstrong-id^="grid"], .col-12, .col-lg-6, .col-lg-5, article, li');
-                var subtitle = '';
-                var byline = '';
-                var imgSrc = '';
-                
-                if (container) {
-                    var subtitleEl = container.querySelector('.body-s.c-text-secondary, .body-l.c-text, .card__deck, h3.body-l');
-                    if (subtitleEl && subtitleEl !== a.parentNode) {
-                        subtitle = subtitleEl.innerText.trim();
-                    }
-                    
-                    var authorLinks = container.querySelectorAll('a[href^="/authors/"]');
-                    if (authorLinks.length > 0) {
-                        var authors = [];
-                        authorLinks.forEach(function(auth) {
-                            authors.push(auth.innerText.trim());
-                        });
-                        byline = authors.join(', ');
-                    } else {
-                        var metaParagraphs = container.querySelectorAll('p.body-s, .body-s');
-                        metaParagraphs.forEach(function(p) {
-                            var text = p.innerText.trim();
-                            if (text && text !== subtitle && !text.includes(title) && text.length < 100) {
-                                byline = text;
-                            }
-                        });
-                    }
-                    
-                    var imgEl = container.querySelector('img');
-                    if (imgEl) {
-                        if (imgEl.dataset.src) {
-                            imgSrc = imgEl.dataset.src;
-                        } else if (imgEl.srcset) {
-                            var candidates = imgEl.srcset.split(',').map(function(s) {
-                                var parts = s.trim().split(/\\s+/);
-                                var url = parts[0];
-                                var descriptor = parts[1] || '';
-                                var width = 0;
-                                if (descriptor.endsWith('w')) {
-                                    width = parseInt(descriptor.slice(0, -1), 10) || 0;
-                                } else if (descriptor.endsWith('x')) {
-                                    width = parseFloat(descriptor.slice(0, -1)) * 1000 || 0;
-                                }
-                                return { url: url, width: width };
-                            });
-                            if (candidates.length > 0) {
-                                candidates.sort(function(a, b) { return b.width - a.width; });
-                                imgSrc = candidates[0].url;
-                            }
-                        }
-                        if (!imgSrc) {
-                            imgSrc = imgEl.src || '';
-                        }
-                        if (imgSrc.startsWith('data:')) {
-                            imgSrc = '';
-                        }
-                    }
-                }
-                
-                var displayCategory = category.replace(/-/g, ' ').toUpperCase();
-                
-                seenUrls.add(absoluteUrl);
-                articles.push({
-                    url: absoluteUrl,
-                    title: title,
-                    subtitle: subtitle,
-                    byline: byline,
-                    image: imgSrc,
-                    category: displayCategory
-                });
-            });
-            return JSON.stringify(articles);
-        })();
-        """
-
-      do {
-        var list: [ArticleHeader] = []
-        var attempts = 0
-        while attempts < 50 {
-          if let resultStr = try await webView.evaluateJavaScript(extractionJS) as? String,
-            let data = resultStr.data(using: .utf8)
-          {
-            let extracted = try JSONDecoder().decode([ArticleHeader].self, from: data)
-            if !extracted.isEmpty {
-              list = extracted
-              break
-            }
-          }
-          attempts += 1
-          try await Task.sleep(nanoseconds: 100_000_000)  // Wait 100ms
-        }
-
-        if list.isEmpty {
-          throw NSError(
-            domain: "ArticleListFetcher", code: -2,
-            userInfo: [
-              NSLocalizedDescriptionKey:
-                "Failed to parse list content or no articles found after loading page"
-            ])
-        }
-        self.completion(.success(list))
-      } catch {
-        self.completion(.failure(error))
-      }
-      ArticleListFetcher.activeFetchers.remove(self)
+    if list.isEmpty {
+      throw NSError(
+        domain: "ArticleListFetcher", code: -2,
+        userInfo: [
+          NSLocalizedDescriptionKey: "No articles found in RSS feed"
+        ])
     }
-  }
-
-  nonisolated func webView(
-    _ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error
-  ) {
-    Task { @MainActor in
-      self.completion(.failure(error))
-      ArticleListFetcher.activeFetchers.remove(self)
-    }
-  }
-
-  nonisolated func webView(
-    _ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!,
-    withError error: any Error
-  ) {
-    Task { @MainActor in
-      self.completion(.failure(error))
-      ArticleListFetcher.activeFetchers.remove(self)
-    }
-  }
-
-  nonisolated func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-    Task { @MainActor in
-      let error = NSError(
-        domain: "ArticleListFetcher", code: -1,
-        userInfo: [NSLocalizedDescriptionKey: "Web content process terminated"])
-      self.completion(.failure(error))
-      ArticleListFetcher.activeFetchers.remove(self)
-    }
+    return list
   }
 
   private static func fetchNativeSearch(query: String) async throws -> [ArticleHeader] {
@@ -348,6 +153,103 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate {
       return ArticleHeader(
         url: url, title: title, subtitle: subtitle, byline: byline, image: image, category: category
       )
+    }
+  }
+}
+
+class RSSParser: NSObject, XMLParserDelegate {
+  private var items: [ArticleHeader] = []
+
+  private var currentElement = ""
+  private var currentTitle = ""
+  private var currentLink = ""
+  private var currentDescription = ""
+  private var currentCreator = ""
+  private var currentImageUrl = ""
+  private var inItem = false
+
+  func parse(xmlData: Data) -> [ArticleHeader] {
+    let parser = XMLParser(data: xmlData)
+    parser.shouldProcessNamespaces = false
+    parser.shouldReportNamespacePrefixes = false
+    parser.delegate = self
+    parser.parse()
+    return items
+  }
+
+  func parser(
+    _ parser: XMLParser,
+    didStartElement elementName: String,
+    namespaceURI: String?,
+    qualifiedName qName: String?,
+    attributes attributeDict: [String: String] = [:]
+  ) {
+    currentElement = elementName
+    if elementName == "item" {
+      inItem = true
+      currentTitle = ""
+      currentLink = ""
+      currentDescription = ""
+      currentCreator = ""
+      currentImageUrl = ""
+    } else if inItem {
+      if elementName == "media:content" || qName == "media:content" {
+        if let url = attributeDict["url"] {
+          currentImageUrl = url
+        }
+      }
+    }
+  }
+
+  func parser(_ parser: XMLParser, foundCharacters string: String) {
+    guard inItem else { return }
+
+    switch currentElement {
+    case "title":
+      currentTitle += string
+    case "link":
+      currentLink += string
+    case "description":
+      currentDescription += string
+    case "dc:creator", "creator":
+      currentCreator += string
+    default:
+      break
+    }
+  }
+
+  func parser(
+    _ parser: XMLParser,
+    didEndElement elementName: String,
+    namespaceURI: String?,
+    qualifiedName qName: String?
+  ) {
+    if elementName == "item" {
+      inItem = false
+
+      let trimmedTitle = currentTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+      let trimmedLink = currentLink.trimmingCharacters(in: .whitespacesAndNewlines)
+      let trimmedDescription = currentDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+      let trimmedCreator = currentCreator.trimmingCharacters(in: .whitespacesAndNewlines)
+
+      // Extract category
+      var category = "FEATURED"
+      if let url = URL(string: trimmedLink) {
+        let pathComponents = url.pathComponents.filter { $0 != "/" && !$0.isEmpty }
+        if pathComponents.count >= 2 {
+          category = pathComponents[0].replacingOccurrences(of: "-", with: " ").uppercased()
+        }
+      }
+
+      let header = ArticleHeader(
+        url: trimmedLink,
+        title: trimmedTitle,
+        subtitle: trimmedDescription,
+        byline: trimmedCreator,
+        image: currentImageUrl,
+        category: category
+      )
+      items.append(header)
     }
   }
 }

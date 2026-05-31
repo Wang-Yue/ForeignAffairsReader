@@ -134,55 +134,6 @@ struct ContentView: View {
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
 
-        // Custom Horizontal Capsule Selector for Categories
-        HStack(spacing: 4) {
-          ForEach(["Featured", "Latest", "Most Read"], id: \.self) { section in
-            Button(action: {
-              withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                model.sidebarSection = section
-              }
-            }) {
-              Text(model.uiString(section))
-                .font(
-                  .system(size: 11, weight: model.sidebarSection == section ? .semibold : .medium)
-                )
-                .foregroundColor(
-                  model.sidebarSection == section
-                    ? model.readerTheme.primaryTextColor : model.readerTheme.secondaryTextColor
-                )
-                .padding(.vertical, 6)
-                .frame(maxWidth: .infinity)
-                .background(
-                  RoundedRectangle(cornerRadius: 6)
-                    .fill(
-                      model.sidebarSection == section
-                        ? model.readerTheme.controlBackgroundColor : Color.clear
-                    )
-                    .shadow(
-                      color: model.sidebarSection == section
-                        ? Color.black.opacity(model.readerTheme == .dark ? 0.3 : 0.06)
-                        : Color.clear, radius: 1, x: 0, y: 1)
-                )
-            }
-            .buttonStyle(.plain)
-          }
-        }
-        .padding(4)
-        .background(
-          RoundedRectangle(cornerRadius: 8)
-            .fill(model.readerTheme.sidebarBackgroundColor)
-        )
-        .overlay(
-          RoundedRectangle(cornerRadius: 8)
-            .stroke(model.readerTheme.borderColor, lineWidth: 1)
-        )
-        .padding(.horizontal, 16)
-        .padding(.bottom, 12)
-
-        Rectangle()
-          .fill(model.readerTheme.borderColor)
-          .frame(height: 1)
-
         // Article List Scroll Area
         ZStack {
           if model.isListLoading {
@@ -219,7 +170,7 @@ struct ContentView: View {
               Text(model.uiString("No articles found"))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(model.readerTheme.primaryTextColor)
-              Text(model.uiString("Try refining your query or browse a different section."))
+              Text(model.uiString("Try refining your query."))
                 .font(.system(size: 10))
                 .foregroundColor(model.readerTheme.secondaryTextColor)
                 .multilineTextAlignment(.center)

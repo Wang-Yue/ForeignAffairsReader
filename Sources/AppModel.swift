@@ -46,12 +46,6 @@ class AppModel {
   var translatedUI: [String: String] = [:]
   var isListLoading: Bool = false
   var listError: String? = nil
-  var sidebarSection: String = "Featured" {
-    didSet {
-      searchQuery = ""
-      fetchArticlesForCurrentSection()
-    }
-  }
   var searchQuery: String = ""
 
   // Reader preferences
@@ -100,12 +94,9 @@ class AppModel {
   // Available UI strings to translate dynamically
   let uiStringsToTranslate = [
     "Search articles...",
-    "Featured",
-    "Latest",
-    "Most Read",
     "Fetching feed from live site...",
     "No articles found",
-    "Try refining your query or browse a different section.",
+    "Try refining your query.",
     "Retry",
     "Translating Natively...",
     "Preparing Reader Mode...",
@@ -141,16 +132,7 @@ class AppModel {
       targetUrlString =
         "https://www.foreignaffairs.com/search/\(searchQuery.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? searchQuery)"
     } else {
-      switch sidebarSection {
-      case "Featured":
-        targetUrlString = "https://www.foreignaffairs.com"
-      case "Latest":
-        targetUrlString = "https://www.foreignaffairs.com/search"
-      case "Most Read":
-        targetUrlString = "https://www.foreignaffairs.com/most-read"
-      default:
-        targetUrlString = "https://www.foreignaffairs.com"
-      }
+      targetUrlString = "https://www.foreignaffairs.com"
     }
 
     guard let url = URL(string: targetUrlString) else { return }
