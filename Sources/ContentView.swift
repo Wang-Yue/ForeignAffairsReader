@@ -353,7 +353,6 @@ struct ContentView: View {
         }
         .id("\(model.selectedLanguage)-\(model.translationTriggerCount)")
     )
-    .id(model.article?.title ?? "empty")
     #if os(macOS)
       .frame(minWidth: 850, minHeight: 600)
       .toolbar(isFullScreen ? .hidden : .automatic, for: .windowToolbar)
