@@ -1,15 +1,15 @@
 # Foreign Affairs Custom Reader 📰✨
 
-A beautifully crafted, premium native **macOS Desktop Application** designed specifically to format, read, and translate articles from *Foreign Affairs* in a clean, distraction-free native editorial view.
+A beautifully crafted, premium native **Multiplatform (macOS, iPadOS, iOS) Application** designed specifically to format, read, and translate articles from *Foreign Affairs* in a clean, distraction-free native editorial view.
 
-Built entirely with **Swift 6, SwiftUI, and Cocoa API integrations**, this app presents a seamless, high-fidelity custom reading experience.
+Built entirely with **Swift 6, SwiftUI, and Apple Native Platform API integrations**, this app presents a seamless, high-fidelity custom reading experience.
 
 ---
 
 ## 🎨 Rich Premium Aesthetics
 
 Designed to impress at first glance:
-- **Integrated Full-Height Sidebar**: Crafted with a seamless, titlebar-integrated layout that nests the macOS traffic light controls natively inside the sidebar for a premium, streamlined desktop experience.
+- **Integrated Sidebar**: Crafted with a seamless, titlebar-integrated layout that nests the macOS traffic light controls natively inside the sidebar for a premium, streamlined desktop experience.
 - **Golden Sepia & Velvet Dark Modes**: Curated color palettes matching high-end editorial platforms, providing exceptional reading comfort.
 - **Stunning Editorial Typography**: Automatically loads premium serif fonts (*Playfair Display*, *Georgia*) and sans-serif fonts (*Inter*) with optimal line heights and paragraph margins for long-form reading.
 - **Actionable Micro-Animations**: Hover effects, scale-ups, and color sweeps on sidebar navigation controls, lists, and segmented theme pickers.
