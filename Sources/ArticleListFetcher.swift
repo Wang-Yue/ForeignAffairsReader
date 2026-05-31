@@ -1,15 +1,5 @@
 import Foundation
 
-struct ArticleHeader: Identifiable, Codable, Equatable, Sendable {
-  var id: String { url }
-  let url: String
-  let title: String
-  let subtitle: String
-  let byline: String
-  let image: String
-  let category: String
-}
-
 class ArticleListFetcher {
   static func fetch() async throws -> [ArticleHeader] {
     // Use the RSS feed URL for all other list fetches
