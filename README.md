@@ -9,7 +9,7 @@ Built entirely with **Swift 6, SwiftUI, and Cocoa API integrations**, this app p
 ## 🎨 Rich Premium Aesthetics
 
 Designed to impress at first glance:
-- **Glassmorphism Header**: Implemented using macOS native `NSVisualEffectView` for a gorgeous, semi-transparent blurred sidebar/toolbar experience.
+- **Integrated Full-Height Sidebar**: Crafted with a seamless, titlebar-integrated layout that nests the macOS traffic light controls natively inside the sidebar for a premium, streamlined desktop experience.
 - **Golden Sepia & Velvet Dark Modes**: Curated color palettes matching high-end editorial platforms, providing exceptional reading comfort.
 - **Stunning Editorial Typography**: Automatically loads premium serif fonts (*Playfair Display*, *Georgia*) and sans-serif fonts (*Inter*) with optimal line heights and paragraph margins for long-form reading.
 - **Actionable Micro-Animations**: Hover effects, scale-ups, and color sweeps on sidebar navigation controls, lists, and segmented theme pickers.
@@ -18,9 +18,11 @@ Designed to impress at first glance:
 
 ## 🚀 Core Capabilities & Features
 
-### 1. Custom Article Formatting & Native Reader Mode
-- **Headless Parsing Pipeline**: A secure, background-scraped Swift-JS bridge (`ArticleParser`) parses live page HTML to extract structural elements (Title, Subtitle, Byline, Date, Issue, Cover Image, and body elements recursively).
-- **Distraction-Free Rendering**: Compiles the extracted DOM content and renders it natively using high-performance SwiftUI views.
+### 1. Curated RSS Feed & Native Elasticsearch Search
+- **Curated RSS Listing**: Fetches the latest article catalog directly from the official *Foreign Affairs* RSS feed (`rss.xml`) using a lightweight SAX-based XML Parser, reducing data consumption and loading times to milliseconds.
+- **Native Elasticsearch Search**: Triggers direct JSON queries to the native *Foreign Affairs* Elasticsearch search endpoint for high-performance full-index search results when actively searching.
+- **Headless Parsing Pipeline**: A secure, background-scraped Swift-JS bridge (`ArticleParser`) parses live page HTML to extract structural elements (Title, Subtitle, Byline, Date, Issue, Cover Image, and body elements recursively) once an article is selected.
+- **Distraction-Free Rendering**: Compiles the extracted content and renders it natively using high-performance SwiftUI views.
 
 ### 2. On-Device Native Translation (Apple ML)
 - **Zero Third-Party Dependencies**: Translation is performed completely natively using Apple's secure, on-device machine learning models.
