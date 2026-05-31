@@ -45,7 +45,7 @@ struct ReaderView: View {
                   Text("By ")
                     .font(.sansSerif(size: 13))
                     .foregroundColor(model.readerTheme.secondaryTextColor)
-                  + Text(article.byline)
+                    + Text(article.byline)
                     .font(.sansSerif(size: 13, weight: .semibold))
                     .foregroundColor(model.readerTheme.primaryTextColor)
                 }

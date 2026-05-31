@@ -1,5 +1,5 @@
-import SwiftUI
 import Foundation
+import SwiftUI
 @preconcurrency import Translation
 
 struct ArticleCardView: View {
@@ -513,15 +513,17 @@ struct ContentView: View {
         for originalString in model.uiStringsToTranslate {
           model.translatedUI[originalString] = originalString
         }
-        
+
         var uiRequests: [TranslationSession.Request] = []
         for originalString in model.uiStringsToTranslate {
           let trimmed = originalString.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
           if !trimmed.isEmpty {
-            uiRequests.append(TranslationSession.Request(sourceText: originalString, clientIdentifier: originalString))
+            uiRequests.append(
+              TranslationSession.Request(
+                sourceText: originalString, clientIdentifier: originalString))
           }
         }
-        
+
         if !uiRequests.isEmpty {
           if Task.isCancelled { return }
           let responses = session.translate(batch: uiRequests)
@@ -546,52 +548,62 @@ struct ContentView: View {
 
       if !isListAlreadyTranslated {
         model.translatedArticleList = model.articleList
-        
+
         var listRequests: [TranslationSession.Request] = []
         let headers = model.articleList
-        
+
         for index in headers.indices {
           let header = headers[index]
           let fields = [header.title, header.subtitle, header.byline, header.category]
-          
+
           for (fIdx, text) in fields.enumerated() {
             let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
             if !trimmed.isEmpty {
               let identifier = "\(index)-\(fIdx)"
-              listRequests.append(TranslationSession.Request(sourceText: text, clientIdentifier: identifier))
+              listRequests.append(
+                TranslationSession.Request(sourceText: text, clientIdentifier: identifier))
             }
           }
         }
-        
+
         if !listRequests.isEmpty {
           if Task.isCancelled { return }
           let responses = session.translate(batch: listRequests)
-          
+
           var tempHeaders = headers
           for try await response in responses {
             if Task.isCancelled { return }
             guard let identifier = response.clientIdentifier else { continue }
             let parts = identifier.split(separator: "-")
             guard parts.count == 2,
-                  let hIdx = Int(parts[0]),
-                  let fIdx = Int(parts[1]) else { continue }
-            
+              let hIdx = Int(parts[0]),
+              let fIdx = Int(parts[1])
+            else { continue }
+
             let transText = response.targetText
             let header = tempHeaders[hIdx]
-            
+
             switch fIdx {
             case 0:
-              tempHeaders[hIdx] = ArticleHeader(url: header.url, title: transText, subtitle: header.subtitle, byline: header.byline, image: header.image, category: header.category)
+              tempHeaders[hIdx] = ArticleHeader(
+                url: header.url, title: transText, subtitle: header.subtitle, byline: header.byline,
+                image: header.image, category: header.category)
             case 1:
-              tempHeaders[hIdx] = ArticleHeader(url: header.url, title: header.title, subtitle: transText, byline: header.byline, image: header.image, category: header.category)
+              tempHeaders[hIdx] = ArticleHeader(
+                url: header.url, title: header.title, subtitle: transText, byline: header.byline,
+                image: header.image, category: header.category)
             case 2:
-              tempHeaders[hIdx] = ArticleHeader(url: header.url, title: header.title, subtitle: header.subtitle, byline: transText, image: header.image, category: header.category)
+              tempHeaders[hIdx] = ArticleHeader(
+                url: header.url, title: header.title, subtitle: header.subtitle, byline: transText,
+                image: header.image, category: header.category)
             case 3:
-              tempHeaders[hIdx] = ArticleHeader(url: header.url, title: header.title, subtitle: header.subtitle, byline: header.byline, image: header.image, category: transText)
+              tempHeaders[hIdx] = ArticleHeader(
+                url: header.url, title: header.title, subtitle: header.subtitle,
+                byline: header.byline, image: header.image, category: transText)
             default:
               break
             }
-            
+
             model.translatedArticleList = tempHeaders
           }
         }
@@ -612,49 +624,51 @@ struct ContentView: View {
         model.isLoading = false
 
         var articleRequests: [TranslationSession.Request] = []
-        
+
         // A. Topper Fields
         let topperFields = [
           (article.title, 0),
           (article.subtitle, 1),
           (article.byline, 2),
           (article.date, 3),
-          (article.issue, 4)
+          (article.issue, 4),
         ]
         for (text, type) in topperFields {
           let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
           if !trimmed.isEmpty {
             let identifier = "topper-\(type)"
-            articleRequests.append(TranslationSession.Request(sourceText: text, clientIdentifier: identifier))
+            articleRequests.append(
+              TranslationSession.Request(sourceText: text, clientIdentifier: identifier))
           }
         }
-        
+
         // B. Elements (Paragraphs)
         for index in article.elements.indices {
           let element = article.elements[index]
           let trimmed = element.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
           if !trimmed.isEmpty {
             let identifier = "element-\(index)"
-            articleRequests.append(TranslationSession.Request(sourceText: element.text, clientIdentifier: identifier))
+            articleRequests.append(
+              TranslationSession.Request(sourceText: element.text, clientIdentifier: identifier))
           }
         }
-        
+
         if !articleRequests.isEmpty {
           if Task.isCancelled { return }
           let responses = session.translate(batch: articleRequests)
-          
+
           var transTitle = article.title
           var transSubtitle = article.subtitle
           var transByline = article.byline
           var transDate = article.date
           var transIssue = article.issue
           var transElements = article.elements
-          
+
           for try await response in responses {
             if Task.isCancelled { return }
             guard let identifier = response.clientIdentifier else { continue }
             let transText = response.targetText
-            
+
             if identifier.hasPrefix("topper-") {
               let typeString = identifier.replacingOccurrences(of: "topper-", with: "")
               guard let type = Int(typeString) else { continue }
@@ -669,9 +683,10 @@ struct ContentView: View {
             } else if identifier.hasPrefix("element-") {
               let indexString = identifier.replacingOccurrences(of: "element-", with: "")
               guard let index = Int(indexString), index < transElements.count else { continue }
-              transElements[index] = ArticleElement(type: article.elements[index].type, text: transText)
+              transElements[index] = ArticleElement(
+                type: article.elements[index].type, text: transText)
             }
-            
+
             currentTranslated = ArticleData(
               title: transTitle,
               subtitle: transSubtitle,
@@ -681,7 +696,7 @@ struct ContentView: View {
               image: article.image,
               elements: transElements
             )
-            
+
             model.translatedArticle = currentTranslated
           }
         }

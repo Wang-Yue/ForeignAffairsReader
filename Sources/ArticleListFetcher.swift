@@ -75,8 +75,6 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     self.backgroundWebView.load(request)
   }
 
-
-
   // WKNavigationDelegate
   nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
     Task { @MainActor in
