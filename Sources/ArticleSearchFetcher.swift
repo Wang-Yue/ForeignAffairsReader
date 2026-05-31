@@ -23,6 +23,12 @@ struct ESResponse: Codable, Sendable {
 
 class ArticleSearchFetcher {
   static func search(query: String) async throws -> [ArticleHeader] {
+    guard !query.isEmpty else {
+      throw NSError(
+        domain: "ArticleSearchFetcher", code: -1,
+        userInfo: [NSLocalizedDescriptionKey: "Search query cannot be empty"])
+    }
+
     let url = URL(string: "https://www.foreignaffairs.com/fa-search.php")!
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
@@ -31,70 +37,49 @@ class ArticleSearchFetcher {
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       forHTTPHeaderField: "User-Agent")
 
-    let jsonString: String
-    if query.isEmpty {
-      jsonString = """
-        {
-          "query": {
-            "bool": {
-              "must": { "match_all": {} },
-              "must_not": [ { "terms": { "fa_node_type_or_subtype": ["Audio", "Issue"] } } ],
-              "filter": [
-                { "terms": { "search_api_language": ["en", "und"] } },
-                { "range": { "fa_normalized_date": { "gte": "1922-09-01T05:00:00.000Z", "lte": "2026-12-31T23:59:59.999Z" } } }
-              ]
-            }
-          },
-          "size": 30,
-          "from": 0,
-          "sort": [ { "fa_normalized_date": "desc" } ]
-        }
-        """
-    } else {
-      let escapedQuery = query.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(
-        of: "\"", with: "\\\"")
-      jsonString = """
-        {
-          "query": {
-            "bool": {
-              "must": {
-                "function_score": {
-                  "query": {
-                    "bool": {
-                      "should": [
-                        { "multi_match": { "query": "\(escapedQuery)", "fields": [], "operator": "and", "type": "phrase_prefix" } },
-                        { "multi_match": { "query": "\(escapedQuery)", "fields": [], "operator": "and", "type": "best_fields" } },
-                        { "multi_match": { "query": "\(escapedQuery)", "fields": [], "operator": "and", "type": "cross_fields" } }
-                      ]
-                    }
-                  },
-                  "score_mode": "max",
-                  "boost_mode": "multiply",
-                  "functions": [
-                    {
-                      "script_score": {
-                        "script": {
-                          "lang": "painless",
-                          "inline": "List boost_types = ['Collection', 'Comment', 'Essay', 'Interview', 'Review', 'Roundtable']; double score = _score; if (doc.containsKey('fa_node_type_or_subtype') && !doc['fa_node_type_or_subtype'].empty) { String type = doc['fa_node_type_or_subtype'].value; if (boost_types.contains(type)) { score *= 1.5; } } return score;"
-                        }
+    let escapedQuery = query.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(
+      of: "\"", with: "\\\"")
+    let jsonString = """
+      {
+        "query": {
+          "bool": {
+            "must": {
+              "function_score": {
+                "query": {
+                  "bool": {
+                    "should": [
+                      { "multi_match": { "query": "\(escapedQuery)", "fields": [], "operator": "and", "type": "phrase_prefix" } },
+                      { "multi_match": { "query": "\(escapedQuery)", "fields": [], "operator": "and", "type": "best_fields" } },
+                      { "multi_match": { "query": "\(escapedQuery)", "fields": [], "operator": "and", "type": "cross_fields" } }
+                    ]
+                  }
+                },
+                "score_mode": "max",
+                "boost_mode": "multiply",
+                "functions": [
+                  {
+                    "script_score": {
+                      "script": {
+                        "lang": "painless",
+                        "inline": "List boost_types = ['Collection', 'Comment', 'Essay', 'Interview', 'Review', 'Roundtable']; double score = _score; if (doc.containsKey('fa_node_type_or_subtype') && !doc['fa_node_type_or_subtype'].empty) { String type = doc['fa_node_type_or_subtype'].value; if (boost_types.contains(type)) { score *= 1.5; } } return score;"
                       }
                     }
                   ]
                 }
-              },
-              "must_not": [ { "terms": { "fa_node_type_or_subtype": ["Audio", "Issue"] } } ],
-              "filter": [
-                { "terms": { "search_api_language": ["en", "und"] } },
-                { "range": { "fa_normalized_date": { "gte": "1922-09-01T05:00:00.000Z", "lte": "2026-12-31T23:59:59.999Z" } } }
-              ]
-            }
-          },
-          "size": 30,
-          "from": 0,
-          "sort": [ { "_score": "desc" } ]
-        }
-        """
-    }
+              }
+            },
+            "must_not": [ { "terms": { "fa_node_type_or_subtype": ["Audio", "Issue"] } } ],
+            "filter": [
+              { "terms": { "search_api_language": ["en", "und"] } },
+              { "range": { "fa_normalized_date": { "gte": "1922-09-01T05:00:00.000Z", "lte": "2026-12-31T23:59:59.999Z" } } }
+            ]
+          }
+        },
+        "size": 30,
+        "from": 0,
+        "sort": [ { "_score": "desc" } ]
+      }
+      """
 
     guard let data = jsonString.data(using: .utf8) else {
       throw NSError(
