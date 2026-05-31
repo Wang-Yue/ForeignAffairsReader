@@ -84,23 +84,13 @@ struct ContentView: View {
     NavigationSplitView(columnVisibility: $columnVisibility) {
       // Left Side: Sidebar
       VStack(spacing: 0) {
-        // Premium Sidebar Header (Title & Subtitle)
-        VStack(alignment: .leading, spacing: 4) {
-          Text("Foreign Affairs")
-            .font(.custom("Playfair Display", size: 20))
-            .fontWeight(.bold)
-            .foregroundColor(model.readerTheme.primaryTextColor)
-
-          Text(model.uiString("Reader Edition"))
-            .font(.system(size: 10, weight: .medium))
-            .foregroundColor(model.readerTheme.secondaryTextColor)
-            .tracking(1.5)
-            .textCase(.uppercase)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.top, 20)
-        .padding(.bottom, 12)
+        Text("Foreign Affairs")
+          .font(.custom("Playfair Display", size: 20))
+          .fontWeight(.bold)
+          .foregroundColor(model.readerTheme.primaryTextColor)
+          .padding(.horizontal, 16)
+          .padding(.top, 20)
+          .padding(.bottom, 12)
 
         // Elegant Search Bar
         HStack {

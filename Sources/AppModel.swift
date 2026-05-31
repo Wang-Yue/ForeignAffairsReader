@@ -99,7 +99,6 @@ class AppModel {
 
   // Available UI strings to translate dynamically
   let uiStringsToTranslate = [
-    "Reader Edition",
     "Search articles...",
     "Featured",
     "Latest",
