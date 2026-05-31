@@ -83,7 +83,7 @@ struct ReaderView: View {
             // Article Body Paragraphs (rendered as a single Text block to allow seamless cross-paragraph selection)
             Text(buildBodyAttributedString(for: article))
               .lineSpacing(8)
-              .fixedSize(horizontal: false, vertical: true)
+              .id(article)
           }
           .frame(maxWidth: 680)
           .frame(maxWidth: .infinity, alignment: .center)

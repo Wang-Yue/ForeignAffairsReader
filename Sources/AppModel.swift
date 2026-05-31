@@ -14,12 +14,12 @@ enum ReaderTheme: String, CaseIterable, Identifiable, Sendable {
   }
 }
 
-struct ArticleElement: Codable, Sendable {
+struct ArticleElement: Codable, Sendable, Hashable {
   let type: String  // "p", "h3", "blockquote"
   let text: String
 }
 
-struct ArticleData: Codable, Sendable {
+struct ArticleData: Codable, Sendable, Hashable {
   let title: String
   let subtitle: String
   let byline: String
