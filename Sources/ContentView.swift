@@ -90,7 +90,6 @@ struct ContentView: View {
           .fontWeight(.bold)
           .foregroundColor(model.readerTheme.primaryTextColor)
           .padding(.horizontal, 16)
-          .padding(.top, 20)
           .padding(.bottom, 12)
 
         // Elegant Search Bar
