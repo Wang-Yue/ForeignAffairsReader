@@ -33,15 +33,13 @@ struct ESResponse: Codable, Sendable {
 }
 
 @MainActor
-class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+class ArticleListFetcher: NSObject, WKNavigationDelegate {
   private var backgroundWebView: WKWebView!
   private var completion: (Result<[ArticleHeader], any Error>) -> Void
 
-  // Keep strong references to active fetchers so they don't get deallocated
   private static var activeFetchers = Set<ArticleListFetcher>()
 
   static func fetch(url: URL) async throws -> [ArticleHeader] {
-    // Intercept keyword searches and empty searches (Latest) and query the Elasticsearch API natively
     if url.pathComponents.contains("search") {
       let query = url.lastPathComponent == "search" ? "" : url.lastPathComponent
       return try await fetchNativeSearch(query: query)
@@ -60,10 +58,6 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     super.init()
 
     let configuration = WKWebViewConfiguration()
-    let contentController = WKUserContentController()
-    contentController.add(WeakScriptMessageHandler(self), name: "faListParser")
-    configuration.userContentController = contentController
-
     self.backgroundWebView = WKWebView(frame: .zero, configuration: configuration)
     self.backgroundWebView.navigationDelegate = self
 
@@ -80,146 +74,154 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     Task { @MainActor in
       print("ArticleListFetcher: didFinish loading URL: \(webView.url?.absoluteString ?? "nil")")
 
-      let listJS = """
+      let extractionJS = """
         (function() {
-            var maxAttempts = 50; // 5 seconds total (50 * 100ms)
-            var attempt = 0;
-            
-            function tryExtract() {
-                var articles = [];
-                var seenUrls = new Set();
-                var blacklist = new Set([
-                    'authors', 'issues', 'subscribe', 'newsletter', 'podcasts', 'reviews', 'tags', 'topics', 
-                    'regions', 'search', 'most-read', 'myaccount', 'about-foreign-affairs', 'submissions', 
-                    'permissions', 'feedback', 'accessibility-statement', 'sites', 'themes', 'user', 'rss.xml', 
-                    'graduateschoolforum', 'subscription', 'terms-use', 'privacy-policy', 'manage-preferences', 
-                    'events', 'mediakit', 'staff', 'frequently-asked-questions', 'books-and-reviews', 'magazine',
-                    'browse'
-                ]);
+            var articles = [];
+            var seenUrls = new Set();
+            var blacklist = new Set([
+                'authors', 'issues', 'subscribe', 'newsletter', 'podcasts', 'reviews', 'tags', 'topics', 
+                'regions', 'search', 'most-read', 'myaccount', 'about-foreign-affairs', 'submissions', 
+                'permissions', 'feedback', 'accessibility-statement', 'sites', 'themes', 'user', 'rss.xml', 
+                'graduateschoolforum', 'subscription', 'terms-use', 'privacy-policy', 'manage-preferences', 
+                'events', 'mediakit', 'staff', 'frequently-asked-questions', 'books-and-reviews', 'magazine',
+                'browse'
+            ]);
 
-                var anchors = document.querySelectorAll('a[href]');
-                anchors.forEach(function(a) {
-                    var href = a.getAttribute('href');
-                    if (!href) return;
-                    
-                    var urlObj;
-                    try {
-                        urlObj = new URL(href, window.location.origin);
-                    } catch(e) {
-                        return;
-                    }
-                    
-                    if (urlObj.origin !== window.location.origin) return;
-                    
-                    var pathname = urlObj.pathname;
-                    var segments = pathname.split('/').filter(Boolean);
-                    
-                    if (segments.length !== 2) return;
-                    
-                    var category = segments[0];
-                    var slug = segments[1];
-                    
-                    if (blacklist.has(category.toLowerCase())) return;
-                    
-                    var absoluteUrl = urlObj.origin + pathname;
-                    if (seenUrls.has(absoluteUrl)) return;
-                    
-                    var title = a.innerText.trim();
-                    if (title.length < 5) return;
-                    
-                    var container = a.closest('.card, [data-armstrong-id^="grid"], .col-12, .col-lg-6, .col-lg-5, article, li');
-                    var subtitle = '';
-                    var byline = '';
-                    var imgSrc = '';
-                    
-                    if (container) {
-                        var subtitleEl = container.querySelector('.body-s.c-text-secondary, .body-l.c-text, .card__deck, h3.body-l');
-                        if (subtitleEl && subtitleEl !== a.parentNode) {
-                            subtitle = subtitleEl.innerText.trim();
-                        }
-                        
-                        var authorLinks = container.querySelectorAll('a[href^="/authors/"]');
-                        if (authorLinks.length > 0) {
-                            var authors = [];
-                            authorLinks.forEach(function(auth) {
-                                authors.push(auth.innerText.trim());
-                            });
-                            byline = authors.join(', ');
-                        } else {
-                            var metaParagraphs = container.querySelectorAll('p.body-s, .body-s');
-                            metaParagraphs.forEach(function(p) {
-                                var text = p.innerText.trim();
-                                if (text && text !== subtitle && !text.includes(title) && text.length < 100) {
-                                    byline = text;
-                                }
-                            });
-                        }
-                        
-                        var imgEl = container.querySelector('img');
-                        if (imgEl) {
-                            if (imgEl.dataset.src) {
-                                imgSrc = imgEl.dataset.src;
-                            } else if (imgEl.srcset) {
-                                var candidates = imgEl.srcset.split(',').map(function(s) {
-                                    var parts = s.trim().split(/\\\\s+/);
-                                    var url = parts[0];
-                                    var descriptor = parts[1] || '';
-                                    var width = 0;
-                                    if (descriptor.endsWith('w')) {
-                                        width = parseInt(descriptor.slice(0, -1), 10) || 0;
-                                    } else if (descriptor.endsWith('x')) {
-                                        width = parseFloat(descriptor.slice(0, -1)) * 1000 || 0;
-                                    }
-                                    return { url: url, width: width };
-                                });
-                                if (candidates.length > 0) {
-                                    candidates.sort(function(a, b) { return b.width - a.width; });
-                                    imgSrc = candidates[0].url;
-                                }
-                            }
-                            if (!imgSrc) {
-                                imgSrc = imgEl.src || '';
-                            }
-                            if (imgSrc.startsWith('data:')) {
-                                imgSrc = '';
-                            }
-                        }
-                    }
-                    
-                    var displayCategory = category.replace(/-/g, ' ').toUpperCase();
-                    
-                    seenUrls.add(absoluteUrl);
-                    articles.push({
-                        url: absoluteUrl,
-                        title: title,
-                        subtitle: subtitle,
-                        byline: byline,
-                        image: imgSrc,
-                        category: displayCategory
-                    });
-                });
-                return articles;
-            }
-            
-            function poll() {
-                var results = tryExtract();
-                attempt++;
-                if (results.length > 0 || attempt >= maxAttempts) {
-                    window.webkit.messageHandlers.faListParser.postMessage(JSON.stringify(results));
-                } else {
-                    setTimeout(poll, 100);
+            var anchors = document.querySelectorAll('a[href]');
+            anchors.forEach(function(a) {
+                var href = a.getAttribute('href');
+                if (!href) return;
+                
+                var urlObj;
+                try {
+                    urlObj = new URL(href, window.location.origin);
+                } catch(e) {
+                    return;
                 }
-            }
-            
-            poll();
+                
+                if (urlObj.origin !== window.location.origin) return;
+                
+                var pathname = urlObj.pathname;
+                var segments = pathname.split('/').filter(Boolean);
+                
+                if (segments.length !== 2) return;
+                
+                var category = segments[0];
+                var slug = segments[1];
+                
+                if (blacklist.has(category.toLowerCase())) return;
+                
+                var absoluteUrl = urlObj.origin + pathname;
+                if (seenUrls.has(absoluteUrl)) return;
+                
+                var title = a.innerText.trim();
+                if (title.length < 5) return;
+                
+                var container = a.closest('.card, [data-armstrong-id^="grid"], .col-12, .col-lg-6, .col-lg-5, article, li');
+                var subtitle = '';
+                var byline = '';
+                var imgSrc = '';
+                
+                if (container) {
+                    var subtitleEl = container.querySelector('.body-s.c-text-secondary, .body-l.c-text, .card__deck, h3.body-l');
+                    if (subtitleEl && subtitleEl !== a.parentNode) {
+                        subtitle = subtitleEl.innerText.trim();
+                    }
+                    
+                    var authorLinks = container.querySelectorAll('a[href^="/authors/"]');
+                    if (authorLinks.length > 0) {
+                        var authors = [];
+                        authorLinks.forEach(function(auth) {
+                            authors.push(auth.innerText.trim());
+                        });
+                        byline = authors.join(', ');
+                    } else {
+                        var metaParagraphs = container.querySelectorAll('p.body-s, .body-s');
+                        metaParagraphs.forEach(function(p) {
+                            var text = p.innerText.trim();
+                            if (text && text !== subtitle && !text.includes(title) && text.length < 100) {
+                                byline = text;
+                            }
+                        });
+                    }
+                    
+                    var imgEl = container.querySelector('img');
+                    if (imgEl) {
+                        if (imgEl.dataset.src) {
+                            imgSrc = imgEl.dataset.src;
+                        } else if (imgEl.srcset) {
+                            var candidates = imgEl.srcset.split(',').map(function(s) {
+                                var parts = s.trim().split(/\\s+/);
+                                var url = parts[0];
+                                var descriptor = parts[1] || '';
+                                var width = 0;
+                                if (descriptor.endsWith('w')) {
+                                    width = parseInt(descriptor.slice(0, -1), 10) || 0;
+                                } else if (descriptor.endsWith('x')) {
+                                    width = parseFloat(descriptor.slice(0, -1)) * 1000 || 0;
+                                }
+                                return { url: url, width: width };
+                            });
+                            if (candidates.length > 0) {
+                                candidates.sort(function(a, b) { return b.width - a.width; });
+                                imgSrc = candidates[0].url;
+                            }
+                        }
+                        if (!imgSrc) {
+                            imgSrc = imgEl.src || '';
+                        }
+                        if (imgSrc.startsWith('data:')) {
+                            imgSrc = '';
+                        }
+                    }
+                }
+                
+                var displayCategory = category.replace(/-/g, ' ').toUpperCase();
+                
+                seenUrls.add(absoluteUrl);
+                articles.push({
+                    url: absoluteUrl,
+                    title: title,
+                    subtitle: subtitle,
+                    byline: byline,
+                    image: imgSrc,
+                    category: displayCategory
+                });
+            });
+            return JSON.stringify(articles);
         })();
         """
+
       do {
-        _ = try await webView.evaluateJavaScript(listJS)
+        var list: [ArticleHeader] = []
+        var attempts = 0
+        while attempts < 50 {
+          if let resultStr = try await webView.evaluateJavaScript(extractionJS) as? String,
+            let data = resultStr.data(using: .utf8)
+          {
+            let extracted = try JSONDecoder().decode([ArticleHeader].self, from: data)
+            if !extracted.isEmpty {
+              list = extracted
+              break
+            }
+          }
+          attempts += 1
+          try await Task.sleep(nanoseconds: 100_000_000)  // Wait 100ms
+        }
+
+        if list.isEmpty {
+          throw NSError(
+            domain: "ArticleListFetcher", code: -2,
+            userInfo: [
+              NSLocalizedDescriptionKey:
+                "Failed to parse list content or no articles found after loading page"
+            ])
+        }
+        self.completion(.success(list))
       } catch {
         self.completion(.failure(error))
-        ArticleListFetcher.activeFetchers.remove(self)
       }
+      ArticleListFetcher.activeFetchers.remove(self)
     }
   }
 
@@ -227,7 +229,6 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     _ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error
   ) {
     Task { @MainActor in
-      print("ArticleListFetcher: didFail navigation: \(error.localizedDescription)")
       self.completion(.failure(error))
       ArticleListFetcher.activeFetchers.remove(self)
     }
@@ -238,7 +239,6 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     withError error: any Error
   ) {
     Task { @MainActor in
-      print("ArticleListFetcher: didFailProvisionalNavigation: \(error.localizedDescription)")
       self.completion(.failure(error))
       ArticleListFetcher.activeFetchers.remove(self)
     }
@@ -251,24 +251,6 @@ class ArticleListFetcher: NSObject, WKNavigationDelegate, WKScriptMessageHandler
         userInfo: [NSLocalizedDescriptionKey: "Web content process terminated"])
       self.completion(.failure(error))
       ArticleListFetcher.activeFetchers.remove(self)
-    }
-  }
-
-  nonisolated func userContentController(
-    _ userContentController: WKUserContentController, didReceive message: WKScriptMessage
-  ) {
-    Task { @MainActor in
-      if message.name == "faListParser", let bodyString = message.body as? String {
-        if let data = bodyString.data(using: .utf8) {
-          do {
-            let list = try JSONDecoder().decode([ArticleHeader].self, from: data)
-            self.completion(.success(list))
-          } catch {
-            self.completion(.failure(error))
-          }
-        }
-        ArticleListFetcher.activeFetchers.remove(self)
-      }
     }
   }
 
