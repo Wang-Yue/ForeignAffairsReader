@@ -124,6 +124,7 @@ struct ReaderView: View {
           .frame(maxWidth: .infinity, alignment: .center)
           .padding(.horizontal, 32)
           .padding(.vertical, 48)
+          .textSelection(.enabled)
         }
         .transition(.opacity.combined(with: .move(edge: .bottom)))
       } else {
