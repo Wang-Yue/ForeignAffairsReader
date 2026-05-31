@@ -425,41 +425,10 @@ struct ContentView: View {
               )
           }
         }
-
-        if columnVisibility == .detailOnly {
-          VStack {
-            HStack {
-              Button(action: {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                  columnVisibility = .all
-                }
-              }) {
-                Image(systemName: "sidebar.left")
-                  .font(.system(size: 13, weight: .medium))
-                  .foregroundColor(model.readerTheme.primaryTextColor)
-                  .frame(width: 32, height: 32)
-                  .background(model.readerTheme.controlBackgroundColor)
-                  .cornerRadius(8)
-                  .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                      .stroke(model.readerTheme.borderColor, lineWidth: 1)
-                  )
-                  .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1)
-              }
-              .buttonStyle(.plain)
-              .padding(.leading, 20)
-              .padding(.top, 20)
-
-              Spacer()
-            }
-            Spacer()
-          }
-        }
       }
       .background(model.readerTheme.backgroundColor)
       .frame(minWidth: 500, idealWidth: 600, maxWidth: .infinity)
       .navigationTitle("")
-      .toolbar(.hidden)
     }
     .background(
       Color.clear
@@ -470,25 +439,6 @@ struct ContentView: View {
     )
     .id(model.article?.title ?? "empty")
     .frame(minWidth: 850, minHeight: 600)
-    .background(
-      Button("") {
-        toggleSidebar()
-      }
-      .keyboardShortcut("s", modifiers: [.command, .option])
-      .opacity(0)
-    )
-    .onAppear {
-      updateWindowAppearance(for: model.readerTheme)
-    }
-    .onChange(of: model.readerTheme) {
-      updateWindowAppearance(for: model.readerTheme)
-    }
-    .onChange(of: model.article?.title) {
-      updateWindowAppearance(for: model.readerTheme)
-    }
-    .onChange(of: model.translatedArticle?.title) {
-      updateWindowAppearance(for: model.readerTheme)
-    }
   }
 
   private func translateContent(session: TranslationSession) async {
@@ -703,59 +653,5 @@ struct ContentView: View {
         "Native Apple Translation failed: \(error.localizedDescription)"
       model.selectedLanguage = "en"
     }
-  }
-
-  private func updateWindowAppearance(for theme: ReaderTheme, window: NSWindow? = nil) {
-    DispatchQueue.main.async {
-      guard
-        let window = window ?? NSApp.mainWindow ?? NSApp.keyWindow ?? NSApp.windows.first(where: {
-          $0.isKeyWindow
-        }) ?? NSApp.windows.first
-      else { return }
-
-      window.titlebarAppearsTransparent = true
-      window.titleVisibility = .hidden
-
-      switch theme {
-      case .dark:
-        window.appearance = NSAppearance(named: .darkAqua)
-        window.backgroundColor = NSColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1.0)
-      case .light:
-        window.appearance = NSAppearance(named: .aqua)
-        window.backgroundColor = .white
-      case .sepia:
-        window.appearance = NSAppearance(named: .aqua)
-        window.backgroundColor = NSColor(red: 0.957, green: 0.925, blue: 0.847, alpha: 1.0)
-      }
-    }
-  }
-
-  private func toggleSidebar() {
-    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-      if columnVisibility == .detailOnly {
-        columnVisibility = .all
-      } else {
-        columnVisibility = .detailOnly
-      }
-    }
-  }
-}
-
-// Helper view to enable elegant blurred macOS backgrounds (glassmorphism)
-struct VisualEffectView: NSViewRepresentable {
-  let material: NSVisualEffectView.Material
-  let blendingMode: NSVisualEffectView.BlendingMode
-
-  func makeNSView(context: Context) -> NSVisualEffectView {
-    let view = NSVisualEffectView()
-    view.material = material
-    view.blendingMode = blendingMode
-    view.state = .active
-    return view
-  }
-
-  func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-    nsView.material = material
-    nsView.blendingMode = blendingMode
   }
 }
