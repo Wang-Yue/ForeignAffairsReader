@@ -79,6 +79,7 @@ struct ContentView: View {
   @State private var model = AppModel()
   @State private var searchInput: String = ""
   @State private var columnVisibility: NavigationSplitViewVisibility = .all
+  @State private var isFullScreen = false
 
   var body: some View {
     NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -439,6 +440,15 @@ struct ContentView: View {
     )
     .id(model.article?.title ?? "empty")
     .frame(minWidth: 850, minHeight: 600)
+    .toolbar(isFullScreen ? .hidden : .automatic, for: .windowToolbar)
+    .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification))
+    { _ in
+      isFullScreen = true
+    }
+    .onReceive(NotificationCenter.default.publisher(for: NSWindow.willExitFullScreenNotification)) {
+      _ in
+      isFullScreen = false
+    }
   }
 
   private func translateContent(session: TranslationSession) async {
