@@ -127,22 +127,17 @@ class AppModel {
   }
 
   func fetchArticlesForCurrentSection() {
-    let targetUrlString: String
-    if !searchQuery.isEmpty {
-      targetUrlString =
-        "https://www.foreignaffairs.com/search/\(searchQuery.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? searchQuery)"
-    } else {
-      targetUrlString = "https://www.foreignaffairs.com"
-    }
-
-    guard let url = URL(string: targetUrlString) else { return }
-
     self.isListLoading = true
     self.listError = nil
 
     Task {
       do {
-        let list = try await ArticleListFetcher.fetch(url: url)
+        let list: [ArticleHeader]
+        if !searchQuery.isEmpty {
+          list = try await ArticleSearchFetcher.search(query: searchQuery)
+        } else {
+          list = try await ArticleListFetcher.fetch()
+        }
         self.articleList = list
         self.isListLoading = false
         if self.selectedLanguage != "en" {
