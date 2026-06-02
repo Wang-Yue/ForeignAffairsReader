@@ -124,15 +124,16 @@ struct ReaderView: View {
     var result = AttributedString()
 
     for (index, element) in article.elements.enumerated() {
+      if index > 0 {
+        result.append(AttributedString("\n\n"))
+      }
+
       var elementStr = AttributedString(element.text)
 
       switch element.type {
       case "h3":
         elementStr.font = .sansSerif(size: 21 * model.fontSizeMultiplier, weight: .bold)
         elementStr.foregroundColor = .accentColor
-        if index > 0 {
-          result.append(AttributedString("\n\n"))
-        }
         result.append(elementStr)
 
       case "blockquote":
@@ -143,18 +144,12 @@ struct ReaderView: View {
         elementStr.font = .serif(size: 22 * model.fontSizeMultiplier).italic()
         elementStr.foregroundColor = .secondary
 
-        if index > 0 {
-          result.append(AttributedString("\n\n"))
-        }
         result.append(prefixStr)
         result.append(elementStr)
 
       default:
         elementStr.font = .serif(size: 18 * model.fontSizeMultiplier)
         elementStr.foregroundColor = .primary
-        if index > 0 {
-          result.append(AttributedString("\n\n"))
-        }
         result.append(elementStr)
       }
     }

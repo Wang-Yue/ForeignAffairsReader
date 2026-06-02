@@ -30,23 +30,15 @@ class ArticleParser {
 
     // Narrow down to body block
     var bodyBlock = ""
-    let primaryContainers = ["paywall-content", "article-dropcap--inner"]
-    let secondaryContainers = ["article__body-content", "rich-text__inner"]
+    let containers = [
+      "paywall-content", "article-dropcap--inner",
+      "article__body-content", "rich-text__inner",
+    ]
 
-    for containerClass in primaryContainers {
+    for containerClass in containers {
       if let matched = extractBalancedContainer(html: htmlString, containerClass: containerClass) {
         bodyBlock = matched
         break
-      }
-    }
-
-    if bodyBlock.isEmpty {
-      for containerClass in secondaryContainers {
-        if let matched = extractBalancedContainer(html: htmlString, containerClass: containerClass)
-        {
-          bodyBlock = matched
-          break
-        }
       }
     }
 
