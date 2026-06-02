@@ -214,15 +214,10 @@ class AppModel {
           translatedUI[originalString] = originalString
         }
 
-        var uiRequests: [TranslationSession.Request] = []
-        for originalString in uiStringsToTranslate {
-          let trimmed = originalString.trimmingCharacters(in: .whitespacesAndNewlines)
-          if !trimmed.isEmpty {
-            uiRequests.append(
-              TranslationSession.Request(
-                sourceText: originalString, clientIdentifier: originalString))
-          }
-        }
+        let uiRequests =
+          uiStringsToTranslate
+          .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+          .map { TranslationSession.Request(sourceText: $0, clientIdentifier: $0) }
 
         if !uiRequests.isEmpty {
           if Task.isCancelled { return }
@@ -250,20 +245,12 @@ class AppModel {
         translatedArticleList = articleList
 
         var listRequests: [TranslationSession.Request] = []
-        let headers = articleList
-
-        for index in headers.indices {
-          let header = headers[index]
+        for (index, header) in articleList.enumerated() {
           let fields = [header.title, header.subtitle, header.byline, header.category]
-
-          for (fIdx, text) in fields.enumerated() {
-            if fIdx == 2 { continue }  // Never translate byline
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
-              let identifier = "\(index)-\(fIdx)"
-              listRequests.append(
-                TranslationSession.Request(sourceText: text, clientIdentifier: identifier))
-            }
+          for (fIdx, text) in fields.enumerated()
+          where fIdx != 2 && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            listRequests.append(
+              TranslationSession.Request(sourceText: text, clientIdentifier: "\(index)-\(fIdx)"))
           }
         }
 
@@ -271,7 +258,7 @@ class AppModel {
           if Task.isCancelled { return }
           let responses = session.translate(batch: listRequests)
 
-          var tempHeaders = headers
+          var tempHeaders = articleList
           for try await response in responses {
             if Task.isCancelled { return }
             guard let identifier = response.clientIdentifier else { continue }
@@ -312,25 +299,18 @@ class AppModel {
           (article.date, 3),
           (article.issue, 4),
         ]
-        for (text, type) in topperFields {
-          if type == 2 { continue }  // Never translate byline
-          let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-          if !trimmed.isEmpty {
-            let identifier = "topper-\(type)"
-            articleRequests.append(
-              TranslationSession.Request(sourceText: text, clientIdentifier: identifier))
-          }
+        for (text, type) in topperFields
+        where type != 2 && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+          articleRequests.append(
+            TranslationSession.Request(sourceText: text, clientIdentifier: "topper-\(type)"))
         }
 
         // B. Elements (Paragraphs)
-        for index in article.elements.indices {
-          let element = article.elements[index]
-          let trimmed = element.text.trimmingCharacters(in: .whitespacesAndNewlines)
-          if !trimmed.isEmpty {
-            let identifier = "element-\(index)"
-            articleRequests.append(
-              TranslationSession.Request(sourceText: element.text, clientIdentifier: identifier))
-          }
+        for (index, element) in article.elements.enumerated()
+        where !element.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+          articleRequests.append(
+            TranslationSession.Request(
+              sourceText: element.text, clientIdentifier: "element-\(index)"))
         }
 
         if !articleRequests.isEmpty {
