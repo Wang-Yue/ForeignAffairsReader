@@ -37,7 +37,6 @@ struct ReaderView: View {
               }
 
               Divider()
-                .background(Color.secondary.opacity(0.15))
                 .padding(.vertical, 8)
 
               HStack {
@@ -85,7 +84,7 @@ struct ReaderView: View {
           .padding(.vertical, 48)
           .textSelection(.enabled)
         }
-        .transition(.opacity.combined(with: .move(edge: .bottom)))
+        .transition(.move(edge: .bottom))
       } else {
         // Elegant Empty/Welcome Screen
         VStack(spacing: 24) {
@@ -93,7 +92,6 @@ struct ReaderView: View {
           Text("✦")
             .font(.system(size: 48))
             .foregroundColor(.accentColor)
-            .opacity(0.85)
 
           Text(model.uiString("Welcome to Foreign Affairs"))
             .font(.serif(size: 28))

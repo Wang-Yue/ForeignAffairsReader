@@ -46,9 +46,9 @@ struct ArticleCardView: View {
                 .frame(width: 50, height: 50)
                 .cornerRadius(6)
             default:
-              Color.secondary.opacity(0.1)
+              RoundedRectangle(cornerRadius: 6)
+                .fill(.quaternary)
                 .frame(width: 50, height: 50)
-                .cornerRadius(6)
             }
           }
         }
@@ -58,14 +58,11 @@ struct ArticleCardView: View {
       .contentShape(Rectangle())
       .background(
         RoundedRectangle(cornerRadius: 8)
-          .fill(
-            isSelected
-              ? Color.accentColor.opacity(0.12)
-              : (isHovered ? Color.primary.opacity(0.06) : Color.clear))
+          .fill(isSelected ? AnyShapeStyle(.tertiary) : (isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(Color.clear)))
       )
       .overlay(
         RoundedRectangle(cornerRadius: 8)
-          .stroke(isSelected ? Color.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
+          .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 1)
       )
     }
     .buttonStyle(.plain)
@@ -130,7 +127,7 @@ struct ContentView: View {
         .cornerRadius(8)
         .overlay(
           RoundedRectangle(cornerRadius: 8)
-            .stroke(.secondary.opacity(0.15), lineWidth: 1)
+            .stroke(.tertiary, lineWidth: 1)
         )
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
@@ -203,9 +200,7 @@ struct ContentView: View {
 
         // Bottom Control Bar
         VStack(spacing: 0) {
-          Rectangle()
-            .fill(.secondary.opacity(0.15))
-            .frame(height: 1)
+          Divider()
 
           HStack(spacing: 12) {
             // Translation Selector Menu
@@ -246,7 +241,7 @@ struct ContentView: View {
               .cornerRadius(6)
               .overlay(
                 RoundedRectangle(cornerRadius: 6)
-                  .stroke(.secondary.opacity(0.15), lineWidth: 1)
+                  .stroke(.tertiary, lineWidth: 1)
               )
             }
             .menuStyle(.button)
@@ -271,7 +266,7 @@ struct ContentView: View {
                   .cornerRadius(6)
                   .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                      .stroke(.secondary.opacity(0.15), lineWidth: 1)
+                      .stroke(.tertiary, lineWidth: 1)
                   )
               }
               .buttonStyle(.plain)
@@ -292,7 +287,7 @@ struct ContentView: View {
                   .cornerRadius(6)
                   .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                      .stroke(.secondary.opacity(0.15), lineWidth: 1)
+                      .stroke(.tertiary, lineWidth: 1)
                   )
               }
               .buttonStyle(.plain)
@@ -565,7 +560,7 @@ struct DetailReaderView: View {
         )
         .overlay(
           RoundedRectangle(cornerRadius: 16)
-            .stroke(.secondary.opacity(0.15), lineWidth: 1)
+            .stroke(.tertiary, lineWidth: 1)
         )
       }
 
@@ -582,7 +577,7 @@ struct DetailReaderView: View {
             )
         }
         .padding(.top, 20)
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .transition(.move(edge: .top))
       }
     }
     .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.extractionError)
