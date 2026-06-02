@@ -64,8 +64,8 @@ class ArticleSearchFetcher {
                         "inline": "List boost_types = ['Collection', 'Comment', 'Essay', 'Interview', 'Review', 'Roundtable']; double score = _score; if (doc.containsKey('fa_node_type_or_subtype') && !doc['fa_node_type_or_subtype'].empty) { String type = doc['fa_node_type_or_subtype'].value; if (boost_types.contains(type)) { score *= 1.5; } } return score;"
                       }
                     }
-                  ]
-                }
+                  }
+                ]
               }
             },
             "must_not": [ { "terms": { "fa_node_type_or_subtype": ["Audio", "Issue"] } } ],

@@ -5,26 +5,26 @@ import Translation
 struct ArticleHeader: Identifiable, Codable, Hashable, Equatable, Sendable {
   var id: String { url }
   let url: String
-  let title: String
-  let subtitle: String
-  let byline: String
-  let image: String
-  let category: String
+  var title: String
+  var subtitle: String
+  var byline: String
+  var image: String
+  var category: String
 }
 
 struct ArticleElement: Codable, Sendable, Hashable {
   let type: String  // "p", "h3", "blockquote"
-  let text: String
+  var text: String
 }
 
 struct ArticleData: Codable, Sendable, Hashable {
-  let title: String
-  let subtitle: String
-  let byline: String
-  let date: String
-  let issue: String
-  let image: String
-  let elements: [ArticleElement]
+  var title: String
+  var subtitle: String
+  var byline: String
+  var date: String
+  var issue: String
+  var image: String
+  var elements: [ArticleElement]
 }
 
 @MainActor
@@ -39,7 +39,7 @@ class AppModel {
     didSet {
       if extractionError != nil {
         Task {
-          try? await Task.sleep(nanoseconds: 5_000_000_000)
+          try? await Task.sleep(for: .seconds(5))
           if self.extractionError != nil {
             self.extractionError = nil
           }

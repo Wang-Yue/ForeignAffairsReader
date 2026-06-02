@@ -58,7 +58,10 @@ struct ArticleCardView: View {
       .contentShape(Rectangle())
       .background(
         RoundedRectangle(cornerRadius: 8)
-          .fill(isSelected ? AnyShapeStyle(.tertiary) : (isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(Color.clear)))
+          .fill(
+            isSelected
+              ? AnyShapeStyle(.tertiary)
+              : (isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(Color.clear)))
       )
       .overlay(
         RoundedRectangle(cornerRadius: 8)
@@ -400,27 +403,13 @@ struct ContentView: View {
             else { continue }
 
             let transText = response.targetText
-            let header = tempHeaders[hIdx]
 
             switch fIdx {
-            case 0:
-              tempHeaders[hIdx] = ArticleHeader(
-                url: header.url, title: transText, subtitle: header.subtitle, byline: header.byline,
-                image: header.image, category: header.category)
-            case 1:
-              tempHeaders[hIdx] = ArticleHeader(
-                url: header.url, title: header.title, subtitle: transText, byline: header.byline,
-                image: header.image, category: header.category)
-            case 2:
-              tempHeaders[hIdx] = ArticleHeader(
-                url: header.url, title: header.title, subtitle: header.subtitle, byline: transText,
-                image: header.image, category: header.category)
-            case 3:
-              tempHeaders[hIdx] = ArticleHeader(
-                url: header.url, title: header.title, subtitle: header.subtitle,
-                byline: header.byline, image: header.image, category: transText)
-            default:
-              break
+            case 0: tempHeaders[hIdx].title = transText
+            case 1: tempHeaders[hIdx].subtitle = transText
+            case 2: tempHeaders[hIdx].byline = transText
+            case 3: tempHeaders[hIdx].category = transText
+            default: break
             }
 
             model.translatedArticleList = tempHeaders
@@ -430,15 +419,7 @@ struct ContentView: View {
 
       // 3. Stream Active Article (if any)
       if let article = model.article {
-        var currentTranslated = ArticleData(
-          title: article.title,
-          subtitle: article.subtitle,
-          byline: article.byline,
-          date: article.date,
-          issue: article.issue,
-          image: article.image,
-          elements: article.elements
-        )
+        var currentTranslated = article
         model.translatedArticle = currentTranslated
         model.isLoading = false
 
@@ -477,13 +458,6 @@ struct ContentView: View {
           if Task.isCancelled { return }
           let responses = session.translate(batch: articleRequests)
 
-          var transTitle = article.title
-          var transSubtitle = article.subtitle
-          var transByline = article.byline
-          var transDate = article.date
-          var transIssue = article.issue
-          var transElements = article.elements
-
           for try await response in responses {
             if Task.isCancelled { return }
             guard let identifier = response.clientIdentifier else { continue }
@@ -493,29 +467,20 @@ struct ContentView: View {
               let typeString = identifier.replacingOccurrences(of: "topper-", with: "")
               guard let type = Int(typeString) else { continue }
               switch type {
-              case 0: transTitle = transText
-              case 1: transSubtitle = transText
-              case 2: transByline = transText
-              case 3: transDate = transText
-              case 4: transIssue = transText
+              case 0: currentTranslated.title = transText
+              case 1: currentTranslated.subtitle = transText
+              case 2: currentTranslated.byline = transText
+              case 3: currentTranslated.date = transText
+              case 4: currentTranslated.issue = transText
               default: break
               }
             } else if identifier.hasPrefix("element-") {
               let indexString = identifier.replacingOccurrences(of: "element-", with: "")
-              guard let index = Int(indexString), index < transElements.count else { continue }
-              transElements[index] = ArticleElement(
-                type: article.elements[index].type, text: transText)
+              guard let index = Int(indexString), index < currentTranslated.elements.count else {
+                continue
+              }
+              currentTranslated.elements[index].text = transText
             }
-
-            currentTranslated = ArticleData(
-              title: transTitle,
-              subtitle: transSubtitle,
-              byline: transByline,
-              date: transDate,
-              issue: transIssue,
-              image: article.image,
-              elements: transElements
-            )
 
             model.translatedArticle = currentTranslated
           }

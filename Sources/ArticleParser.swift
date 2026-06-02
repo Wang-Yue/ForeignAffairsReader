@@ -55,16 +55,16 @@ class ArticleParser {
     }
 
     // Extract elements
-    let nsBody = bodyBlock as NSString
     var elements: [ArticleElement] = []
     let elementPattern = #"<(p|h3|blockquote)[^>]*>([\s\S]*?)</\1>"#
-    if let regex = try? NSRegularExpression(pattern: elementPattern, options: [.caseInsensitive]) {
-      let matches = regex.matches(
-        in: bodyBlock, options: [], range: NSRange(location: 0, length: nsBody.length))
-      for match in matches {
-        if match.numberOfRanges >= 3 {
-          let type = nsBody.substring(with: match.range(at: 1)).lowercased()
-          let rawContent = nsBody.substring(with: match.range(at: 2))
+    if let regex = try? Regex(elementPattern).ignoresCase() {
+      for match in bodyBlock.matches(of: regex) {
+        if match.count >= 3,
+          let typeRange = match[1].range,
+          let contentRange = match[2].range
+        {
+          let type = String(bodyBlock[typeRange]).lowercased()
+          let rawContent = String(bodyBlock[contentRange])
           let content = decodeHTMLEntities(in: cleanHTMLTags(from: rawContent))
           if !content.isEmpty {
             elements.append(ArticleElement(type: type, text: content))
@@ -85,14 +85,8 @@ class ArticleParser {
   }
 
   private static func cleanHTMLTags(from string: String) -> String {
-    let pattern = "<[^>]+>"
-    if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
-      let range = NSRange(string.startIndex..<string.endIndex, in: string)
-      let cleaned = regex.stringByReplacingMatches(
-        in: string, options: [], range: range, withTemplate: "")
-      return cleaned
-    }
-    return string
+    guard let regex = try? Regex(#"<[^>]+>"#) else { return string }
+    return string.replacing(regex, with: "")
   }
 
   private static func decodeHTMLEntities(in string: String) -> String {
@@ -109,17 +103,10 @@ class ArticleParser {
   }
 
   private static func firstMatch(pattern: String, in text: String) -> String? {
-    guard
-      let regex = try? NSRegularExpression(
-        pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators])
-    else { return nil }
-    let nsRange = NSRange(text.startIndex..<text.endIndex, in: text)
-    if let match = regex.firstMatch(in: text, options: [], range: nsRange) {
-      if match.numberOfRanges >= 2 {
-        let groupRange = match.range(at: 1)
-        if let swiftRange = Range(groupRange, in: text) {
-          return String(text[swiftRange])
-        }
+    guard let regex = try? Regex(pattern).ignoresCase() else { return nil }
+    if let match = try? regex.firstMatch(in: text) {
+      if match.count > 1, let range = match[1].range {
+        return String(text[range])
       }
     }
     return nil
@@ -135,40 +122,35 @@ class ArticleParser {
   }
 
   private static func extractBalancedContainer(html: String, containerClass: String) -> String? {
-    let nsHtml = html as NSString
     let startPattern = #"<(div|section)[^>]*class="[^"]*\b\#(containerClass)\b[^"]*"[^>]*>"#
-    guard
-      let regex = try? NSRegularExpression(pattern: startPattern, options: [.caseInsensitive])
+    guard let startRegex = try? Regex(startPattern).ignoresCase(),
+      let startMatch = try? startRegex.firstMatch(in: html)
     else { return nil }
 
-    guard
-      let match = regex.firstMatch(
-        in: html, options: [], range: NSRange(location: 0, length: nsHtml.length))
-    else { return nil }
-    let tagName = nsHtml.substring(with: match.range(at: 1)).lowercased()
+    let tagName = String(html[startMatch[1].range!]).lowercased()
+    let scanStart = startMatch.range.upperBound
 
-    let scanStart = match.range.location + match.range.length
-    let remainingRange = NSRange(location: scanStart, length: nsHtml.length - scanStart)
-
+    let remainingString = html[scanStart...]
     let tagPattern = #"</?\#(tagName)\b[^>]*>"#
-    guard
-      let tagRegex = try? NSRegularExpression(pattern: tagPattern, options: [.caseInsensitive])
-    else { return nil }
+    guard let tagRegex = try? Regex(tagPattern).ignoresCase() else { return nil }
 
-    let matches = tagRegex.matches(in: html, options: [], range: remainingRange)
     var depth = 1
+    var currentRange = remainingString.startIndex..<remainingString.endIndex
 
-    for tagMatch in matches {
-      let tagText = nsHtml.substring(with: tagMatch.range)
+    while depth > 0 {
+      guard let tagMatch = try? tagRegex.firstMatch(in: remainingString[currentRange]) else {
+        break
+      }
+      let tagText = remainingString[tagMatch.range]
       if tagText.hasPrefix("</") {
         depth -= 1
         if depth == 0 {
-          let contentLength = tagMatch.range.location - scanStart
-          return nsHtml.substring(with: NSRange(location: scanStart, length: contentLength))
+          return String(remainingString[..<tagMatch.range.lowerBound])
         }
       } else {
         depth += 1
       }
+      currentRange = tagMatch.range.upperBound..<remainingString.endIndex
     }
     return nil
   }
