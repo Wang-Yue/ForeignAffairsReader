@@ -9,10 +9,10 @@ Built entirely with **Swift 6, SwiftUI, and Apple Native Platform API integratio
 ## 🎨 Rich Premium Aesthetics
 
 Designed to impress at first glance:
-- **Integrated Sidebar**: Crafted with a seamless, titlebar-integrated layout that nests the macOS traffic light controls natively inside the sidebar for a premium, streamlined desktop experience.
-- **Golden Sepia & Velvet Dark Modes**: Curated color palettes matching high-end editorial platforms, providing exceptional reading comfort.
-- **Stunning Editorial Typography**: Automatically loads premium serif fonts (*Playfair Display*, *Georgia*) and sans-serif fonts (*Inter*) with optimal line heights and paragraph margins for long-form reading.
-- **Actionable Micro-Animations**: Hover effects, scale-ups, and color sweeps on sidebar navigation controls, lists, and segmented theme pickers.
+- **Integrated Sidebar**: Structured with a native modern `NavigationSplitView` layout that integrates seamlessly on macOS and iOS, providing clean navigation and responsive list views.
+- **System-Adaptive Light & Dark Modes**: High-fidelity typography and color systems that automatically adapt to macOS and iOS appearance preferences, ensuring optimal reading comfort in any lighting environment.
+- **Stunning Editorial Typography**: Tailored styling using premium system-serif fonts for article content and clean system sans-serif designs for navigation elements, ensuring comfortable long-form reading.
+- **Actionable Micro-Animations**: Fluid hover effects, responsive scales, and smooth transitions on article cards, list scroll areas, and button controls.
 
 ---
 
@@ -30,10 +30,8 @@ Designed to impress at first glance:
 
 ### 3. Interactive Reader Style Tuning
 - **Dynamic Scale**: Scale text font sizes up or down dynamically (from `0.6x` up to `2.0x`) with immediate UI rendering and proportional line height.
-- **Three Premium Themes**:
-  - `Light`: Clean, paper-white background with high-contrast charcoal text.
-  - `Sepia` (Default): Warm, cream background with coffee-colored text to protect your eyes.
-  - `Dark`: Pitch-black dark mode with soft gray text for comfortable nighttime reading.
+- **System-Adaptive Contrast**:
+  - Automatically aligns with system appearance preferences to present clear, high-contrast text in Light mode and soft, eye-friendly text/backgrounds in Dark mode.
 
 ---
 
