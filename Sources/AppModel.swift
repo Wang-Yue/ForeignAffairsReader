@@ -2,18 +2,6 @@ import Foundation
 import Observation
 import Translation
 
-enum ReaderTheme: String, CaseIterable, Identifiable, Sendable {
-  case light = "Light"
-  case sepia = "Sepia"
-  case dark = "Dark"
-
-  var id: String { self.rawValue }
-
-  var cssClass: String {
-    self.rawValue.lowercased()
-  }
-}
-
 struct ArticleHeader: Identifiable, Codable, Hashable, Equatable, Sendable {
   var id: String { url }
   let url: String
@@ -70,7 +58,6 @@ class AppModel {
   var searchQuery: String = ""
 
   // Reader preferences
-  var readerTheme: ReaderTheme = .sepia
   var fontSizeMultiplier: Double = 1.0
   var selectedLanguage: String = "en" {
     didSet {
@@ -124,9 +111,7 @@ class AppModel {
     "Translate",
     "Decrease Font Size",
     "Increase Font Size",
-    "Light Theme",
-    "Sepia Theme",
-    "Dark Theme",
+
     "Welcome to Foreign Affairs",
     "Select an article from the sidebar to begin reading in premium reader mode.",
   ]

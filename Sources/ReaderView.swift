@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ReaderView: View {
   var model: AppModel
+  @Environment(\.colorScheme) var colorScheme
 
   var body: some View {
     let activeArticle = model.translatedArticle ?? model.article
@@ -15,7 +16,7 @@ struct ReaderView: View {
               if !article.issue.isEmpty {
                 Text(article.issue)
                   .font(.sansSerif(size: 12, weight: .bold))
-                  .foregroundColor(model.readerTheme.accentColor)
+                  .foregroundColor(.accentColor)
                   .tracking(1.5)
                   .textCase(.uppercase)
               }
@@ -23,7 +24,7 @@ struct ReaderView: View {
               Text(article.title)
                 .font(.serif(size: 36 * model.fontSizeMultiplier))
                 .fontWeight(.bold)
-                .foregroundColor(model.readerTheme.primaryTextColor)
+                .foregroundColor(.primary)
                 .lineSpacing(6)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -31,26 +32,26 @@ struct ReaderView: View {
                 Text(article.subtitle)
                   .font(.serif(size: 19 * model.fontSizeMultiplier))
                   .italic()
-                  .foregroundColor(model.readerTheme.secondaryTextColor)
+                  .foregroundColor(.secondary)
                   .lineSpacing(4)
                   .fixedSize(horizontal: false, vertical: true)
               }
 
               Divider()
-                .background(model.readerTheme.borderColor)
+                .background(Color.secondary.opacity(0.15))
                 .padding(.vertical, 8)
 
               HStack {
                 if !article.byline.isEmpty {
                   Text(article.byline)
                     .font(.sansSerif(size: 13, weight: .semibold))
-                    .foregroundColor(model.readerTheme.primaryTextColor)
+                    .foregroundColor(.primary)
                 }
                 Spacer()
                 if !article.date.isEmpty {
                   Text(article.date)
                     .font(.sansSerif(size: 13))
-                    .foregroundColor(model.readerTheme.secondaryTextColor)
+                    .foregroundColor(.secondary)
                 }
               }
             }
@@ -66,7 +67,7 @@ struct ReaderView: View {
                     .aspectRatio(contentMode: .fit)
                     .cornerRadius(8)
                     .shadow(
-                      color: Color.black.opacity(model.readerTheme == .dark ? 0.3 : 0.06),
+                      color: .black.opacity(colorScheme == .dark ? 0.3 : 0.06),
                       radius: 16,
                       x: 0,
                       y: 6
@@ -98,13 +99,13 @@ struct ReaderView: View {
           Spacer()
           Text("✦")
             .font(.system(size: 48))
-            .foregroundColor(model.readerTheme.accentColor)
+            .foregroundColor(.accentColor)
             .opacity(0.85)
 
           Text(model.uiString("Welcome to Foreign Affairs"))
             .font(.serif(size: 28))
             .italic()
-            .foregroundColor(model.readerTheme.primaryTextColor)
+            .foregroundColor(.primary)
             .multilineTextAlignment(.center)
 
           Text(
@@ -113,7 +114,7 @@ struct ReaderView: View {
             )
           )
           .font(.sansSerif(size: 14, weight: .light))
-          .foregroundColor(model.readerTheme.secondaryTextColor)
+          .foregroundColor(.secondary)
           .multilineTextAlignment(.center)
           .lineSpacing(6)
           .frame(maxWidth: 380)
@@ -124,9 +125,8 @@ struct ReaderView: View {
         .padding(.horizontal, 40)
       }
     }
-    .background(model.readerTheme.backgroundColor)
+    .background(.background)
     .animation(.easeInOut(duration: 0.25), value: activeArticle == nil)
-    .animation(.easeInOut(duration: 0.25), value: model.readerTheme)
   }
 
   private func buildBodyAttributedString(for article: ArticleData) -> AttributedString {
@@ -138,7 +138,7 @@ struct ReaderView: View {
       switch element.type {
       case "h3":
         elementStr.font = .sansSerif(size: 21 * model.fontSizeMultiplier, weight: .bold)
-        elementStr.foregroundColor = model.readerTheme.accentColor
+        elementStr.foregroundColor = .accentColor
         if index > 0 {
           result.append(AttributedString("\n\n"))
         }
@@ -147,10 +147,10 @@ struct ReaderView: View {
       case "blockquote":
         var prefixStr = AttributedString("┃   ")
         prefixStr.font = .serif(size: 22 * model.fontSizeMultiplier)
-        prefixStr.foregroundColor = model.readerTheme.accentColor
+        prefixStr.foregroundColor = .accentColor
 
         elementStr.font = .serif(size: 22 * model.fontSizeMultiplier).italic()
-        elementStr.foregroundColor = model.readerTheme.secondaryTextColor
+        elementStr.foregroundColor = .secondary
 
         if index > 0 {
           result.append(AttributedString("\n\n"))
@@ -160,7 +160,7 @@ struct ReaderView: View {
 
       default:
         elementStr.font = .serif(size: 18 * model.fontSizeMultiplier)
-        elementStr.foregroundColor = model.readerTheme.primaryTextColor
+        elementStr.foregroundColor = .primary
         if index > 0 {
           result.append(AttributedString("\n\n"))
         }

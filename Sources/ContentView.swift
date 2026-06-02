@@ -5,10 +5,10 @@ import Translation
 struct ArticleCardView: View {
   let article: ArticleHeader
   let isSelected: Bool
-  let theme: ReaderTheme
   let action: () -> Void
 
   @State private var isHovered = false
+  @Environment(\.colorScheme) var colorScheme
 
   var body: some View {
     Button(action: action) {
@@ -16,13 +16,13 @@ struct ArticleCardView: View {
         VStack(alignment: .leading, spacing: 6) {
           Text(article.category)
             .font(.system(size: 9, weight: .bold))
-            .foregroundColor(isSelected ? theme.accentColor : theme.secondaryTextColor)
+            .foregroundColor(isSelected ? Color.accentColor : Color.secondary)
             .tracking(1.2)
 
           Text(article.title)
             .font(.custom("Playfair Display", size: 13))
             .fontWeight(.semibold)
-            .foregroundColor(theme.primaryTextColor)
+            .foregroundColor(.primary)
             .lineLimit(3)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
@@ -30,7 +30,7 @@ struct ArticleCardView: View {
           if !article.byline.isEmpty {
             Text(article.byline)
               .font(.system(size: 10))
-              .foregroundColor(theme.secondaryTextColor)
+              .foregroundColor(.secondary)
               .lineLimit(1)
           }
         }
@@ -47,7 +47,7 @@ struct ArticleCardView: View {
                 .frame(width: 50, height: 50)
                 .cornerRadius(6)
             default:
-              theme.secondaryTextColor.opacity(0.1)
+              Color.secondary.opacity(0.1)
                 .frame(width: 50, height: 50)
                 .cornerRadius(6)
             }
@@ -59,11 +59,14 @@ struct ArticleCardView: View {
       .contentShape(Rectangle())
       .background(
         RoundedRectangle(cornerRadius: 8)
-          .fill(theme.cardBackgroundColor(isSelected: isSelected, isHovered: isHovered))
+          .fill(
+            isSelected
+              ? Color.accentColor.opacity(colorScheme == .dark ? 0.18 : 0.12)
+              : (isHovered ? Color.primary.opacity(0.06) : Color.clear))
       )
       .overlay(
         RoundedRectangle(cornerRadius: 8)
-          .stroke(isSelected ? theme.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
+          .stroke(isSelected ? Color.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
       )
     }
     .buttonStyle(.plain)
@@ -89,14 +92,14 @@ struct ContentView: View {
         Text("Foreign Affairs")
           .font(.custom("Playfair Display", size: 20))
           .fontWeight(.bold)
-          .foregroundColor(model.readerTheme.primaryTextColor)
+          .foregroundColor(.primary)
           .padding(.horizontal, 16)
           .padding(.bottom, 12)
 
         // Elegant Search Bar
         HStack {
           Image(systemName: "magnifyingglass")
-            .foregroundColor(model.readerTheme.secondaryTextColor)
+            .foregroundColor(.secondary)
             .font(.system(size: 12))
 
           TextField(
@@ -108,7 +111,7 @@ struct ContentView: View {
           )
           .textFieldStyle(.plain)
           .font(.system(size: 12))
-          .foregroundColor(model.readerTheme.primaryTextColor)
+          .foregroundColor(.primary)
 
           if !searchInput.isEmpty {
             Button(action: {
@@ -117,7 +120,7 @@ struct ContentView: View {
               model.fetchArticlesForCurrentSection()
             }) {
               Image(systemName: "xmark.circle.fill")
-                .foregroundColor(model.readerTheme.secondaryTextColor)
+                .foregroundColor(.secondary)
                 .font(.system(size: 12))
             }
             .buttonStyle(.plain)
@@ -125,11 +128,11 @@ struct ContentView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(model.readerTheme.controlBackgroundColor)
+        .background(.background)
         .cornerRadius(8)
         .overlay(
           RoundedRectangle(cornerRadius: 8)
-            .stroke(model.readerTheme.borderColor, lineWidth: 1)
+            .stroke(.secondary.opacity(0.15), lineWidth: 1)
         )
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
@@ -142,17 +145,17 @@ struct ContentView: View {
                 .controlSize(.small)
               Text(model.uiString("Fetching feed from live site..."))
                 .font(.system(size: 11))
-                .foregroundColor(model.readerTheme.secondaryTextColor)
+                .foregroundColor(.secondary)
             }
             .frame(maxHeight: .infinity)
           } else if let listErr = model.listError {
             VStack(spacing: 12) {
               Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 24))
-                .foregroundColor(model.readerTheme.accentColor)
+                .foregroundColor(.accentColor)
               Text(listErr)
                 .font(.system(size: 11))
-                .foregroundColor(model.readerTheme.secondaryTextColor)
+                .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 20)
 
@@ -166,13 +169,13 @@ struct ContentView: View {
             VStack(spacing: 8) {
               Image(systemName: "doc.text.magnifyingglass")
                 .font(.system(size: 24))
-                .foregroundColor(model.readerTheme.secondaryTextColor)
+                .foregroundColor(.secondary)
               Text(model.uiString("No articles found"))
                 .font(.system(size: 12, weight: .medium))
-                .foregroundColor(model.readerTheme.primaryTextColor)
+                .foregroundColor(.primary)
               Text(model.uiString("Try refining your query."))
                 .font(.system(size: 10))
-                .foregroundColor(model.readerTheme.secondaryTextColor)
+                .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
             }
             .padding(30)
@@ -187,7 +190,6 @@ struct ContentView: View {
                   ArticleCardView(
                     article: articleHeader,
                     isSelected: model.urlString == articleHeader.url,
-                    theme: model.readerTheme,
                     action: {
                       model.selectArticle(articleHeader)
                       selectedArticleHeader = articleHeader
@@ -204,7 +206,7 @@ struct ContentView: View {
         // Bottom Control Bar
         VStack(spacing: 0) {
           Rectangle()
-            .fill(model.readerTheme.borderColor)
+            .fill(.secondary.opacity(0.15))
             .frame(height: 1)
 
           HStack(spacing: 12) {
@@ -239,47 +241,18 @@ struct ContentView: View {
                 Image(systemName: "chevron.up.chevron.down")
                   .font(.system(size: 8))
               }
-              .foregroundColor(model.readerTheme.primaryTextColor)
+              .foregroundColor(.primary)
               .padding(.horizontal, 8)
               .padding(.vertical, 6)
-              .background(model.readerTheme.controlBackgroundColor)
+              .background(.background)
               .cornerRadius(6)
               .overlay(
                 RoundedRectangle(cornerRadius: 6)
-                  .stroke(model.readerTheme.borderColor, lineWidth: 1)
+                  .stroke(.secondary.opacity(0.15), lineWidth: 1)
               )
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
-
-            Spacer()
-
-            // Theme Selector Circles
-            HStack(spacing: 8) {
-              ForEach(ReaderTheme.allCases) { theme in
-                Button(action: {
-                  withAnimation(.easeInOut(duration: 0.2)) {
-                    model.readerTheme = theme
-                  }
-                }) {
-                  Circle()
-                    .fill(theme.backgroundColor)
-                    .frame(width: 20, height: 20)
-                    .overlay(
-                      Circle()
-                        .stroke(
-                          model.readerTheme == theme
-                            ? model.readerTheme.accentColor : model.readerTheme.borderColor,
-                          lineWidth: model.readerTheme == theme ? 2 : 1)
-                    )
-                    .shadow(
-                      color: Color.black.opacity(model.readerTheme == theme ? 0.15 : 0.05),
-                      radius: 1, x: 0, y: 1)
-                }
-                .buttonStyle(.plain)
-                .help(model.uiString("\(theme.rawValue) Theme"))
-              }
-            }
 
             Spacer()
 
@@ -294,13 +267,13 @@ struct ContentView: View {
               }) {
                 Image(systemName: "textformat.size.smaller")
                   .font(.system(size: 10, weight: .medium))
-                  .foregroundColor(model.readerTheme.primaryTextColor)
+                  .foregroundColor(.primary)
                   .frame(width: 26, height: 26)
-                  .background(model.readerTheme.controlBackgroundColor)
+                  .background(.background)
                   .cornerRadius(6)
                   .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                      .stroke(model.readerTheme.borderColor, lineWidth: 1)
+                      .stroke(.secondary.opacity(0.15), lineWidth: 1)
                   )
               }
               .buttonStyle(.plain)
@@ -315,13 +288,13 @@ struct ContentView: View {
               }) {
                 Image(systemName: "textformat.size.larger")
                   .font(.system(size: 10, weight: .medium))
-                  .foregroundColor(model.readerTheme.primaryTextColor)
+                  .foregroundColor(.primary)
                   .frame(width: 26, height: 26)
-                  .background(model.readerTheme.controlBackgroundColor)
+                  .background(.background)
                   .cornerRadius(6)
                   .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                      .stroke(model.readerTheme.borderColor, lineWidth: 1)
+                      .stroke(.secondary.opacity(0.15), lineWidth: 1)
                   )
               }
               .buttonStyle(.plain)
@@ -330,10 +303,8 @@ struct ContentView: View {
           }
           .padding(.horizontal, 16)
           .padding(.vertical, 12)
-          .background(model.readerTheme.sidebarBackgroundColor)
         }
       }
-      .background(model.readerTheme.sidebarBackgroundColor)
       .navigationSplitViewColumnWidth(min: 320, ideal: 340, max: 400)
       #if os(iOS)
         .navigationDestination(item: $selectedArticleHeader) { header in
@@ -586,6 +557,7 @@ struct ContentView: View {
 
 struct DetailReaderView: View {
   var model: AppModel
+  @Environment(\.colorScheme) var colorScheme
 
   var body: some View {
     ZStack {
@@ -601,18 +573,18 @@ struct DetailReaderView: View {
                 ? "Translating Natively..." : "Preparing Reader Mode...")
           )
           .font(.system(size: 12, weight: .medium))
-          .foregroundColor(model.readerTheme.secondaryTextColor)
+          .foregroundColor(.secondary)
         }
         .padding(30)
         .background(
           RoundedRectangle(cornerRadius: 16)
-            .fill(model.readerTheme.controlBackgroundColor)
+            .fill(.background)
             .shadow(
-              color: Color.black.opacity(model.readerTheme == .dark ? 0.4 : 0.08), radius: 15)
+              color: .black.opacity(colorScheme == .dark ? 0.4 : 0.08), radius: 15)
         )
         .overlay(
           RoundedRectangle(cornerRadius: 16)
-            .stroke(model.readerTheme.borderColor, lineWidth: 1)
+            .stroke(.secondary.opacity(0.15), lineWidth: 1)
         )
       }
 
@@ -620,12 +592,12 @@ struct DetailReaderView: View {
         VStack {
           Text(err)
             .font(.system(size: 12, weight: .medium))
-            .foregroundColor(model.readerTheme == .dark ? .black : .white)
+            .foregroundColor(.white)
             .multilineTextAlignment(.center)
             .padding()
             .background(
               RoundedRectangle(cornerRadius: 8)
-                .fill(model.readerTheme.accentColor)
+                .fill(.red)
             )
         }
         .padding(.top, 20)
@@ -633,6 +605,6 @@ struct DetailReaderView: View {
       }
     }
     .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.extractionError)
-    .background(model.readerTheme.backgroundColor)
+    .background(.background)
   }
 }
