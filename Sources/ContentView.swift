@@ -8,7 +8,6 @@ struct ArticleCardView: View {
   let action: () -> Void
 
   @State private var isHovered = false
-  @Environment(\.colorScheme) var colorScheme
 
   var body: some View {
     Button(action: action) {
@@ -61,7 +60,7 @@ struct ArticleCardView: View {
         RoundedRectangle(cornerRadius: 8)
           .fill(
             isSelected
-              ? Color.accentColor.opacity(colorScheme == .dark ? 0.18 : 0.12)
+              ? Color.accentColor.opacity(0.12)
               : (isHovered ? Color.primary.opacity(0.06) : Color.clear))
       )
       .overlay(
@@ -542,7 +541,6 @@ struct ContentView: View {
 
 struct DetailReaderView: View {
   var model: AppModel
-  @Environment(\.colorScheme) var colorScheme
 
   var body: some View {
     ZStack {
@@ -564,8 +562,6 @@ struct DetailReaderView: View {
         .background(
           RoundedRectangle(cornerRadius: 16)
             .fill(.background)
-            .shadow(
-              color: .black.opacity(colorScheme == .dark ? 0.4 : 0.08), radius: 15)
         )
         .overlay(
           RoundedRectangle(cornerRadius: 16)

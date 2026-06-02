@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ReaderView: View {
   var model: AppModel
-  @Environment(\.colorScheme) var colorScheme
 
   var body: some View {
     let activeArticle = model.translatedArticle ?? model.article
@@ -66,12 +65,6 @@ struct ReaderView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .cornerRadius(8)
-                    .shadow(
-                      color: .black.opacity(colorScheme == .dark ? 0.3 : 0.06),
-                      radius: 16,
-                      x: 0,
-                      y: 6
-                    )
                 case .empty, .failure(_):
                   EmptyView()
                 @unknown default:
